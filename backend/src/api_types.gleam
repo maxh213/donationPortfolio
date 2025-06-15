@@ -1,4 +1,7 @@
 import gleam/json
+import gleam/list
+import gleam/result
+import gleam/string
 
 pub type ApiError {
   ValidationError(message: String)
@@ -7,7 +10,16 @@ pub type ApiError {
   ForbiddenError(message: String)
   InternalServerError(message: String)
   BadRequestError(message: String)
+  ConflictError(message: String)
+  TooManyRequestsError(message: String)
 }
+
+pub type ValidationField {
+  ValidationField(field: String, message: String)
+}
+
+pub type ValidationResult(a) =
+  Result(a, List(ValidationField))
 
 pub type ApiResponse(data) {
   SuccessResponse(data: data)
@@ -21,6 +33,8 @@ pub fn error_to_status_code(error: ApiError) -> Int {
     UnauthorizedError(_) -> 401
     ForbiddenError(_) -> 403
     NotFoundError(_) -> 404
+    ConflictError(_) -> 409
+    TooManyRequestsError(_) -> 429
     InternalServerError(_) -> 500
   }
 }
@@ -33,6 +47,8 @@ pub fn error_to_message(error: ApiError) -> String {
     ForbiddenError(msg) -> msg
     InternalServerError(msg) -> msg
     BadRequestError(msg) -> msg
+    ConflictError(msg) -> msg
+    TooManyRequestsError(msg) -> msg
   }
 }
 
@@ -51,4 +67,57 @@ pub fn error_json(error: ApiError) -> json.Json {
       #("code", json.int(error_to_status_code(error)))
     ]))
   ])
+}
+
+pub fn validation_errors_json(errors: List(ValidationField)) -> json.Json {
+  let error_objects = list.map(errors, fn(error) {
+    json.object([
+      #("field", json.string(error.field)),
+      #("message", json.string(error.message))
+    ])
+  })
+  
+  json.object([
+    #("success", json.bool(False)),
+    #("error", json.object([
+      #("message", json.string("Validation failed")),
+      #("code", json.int(400)),
+      #("details", json.array(error_objects, fn(x) { x }))
+    ]))
+  ])
+}
+
+pub fn validate_required_string(value: String, field: String) -> ValidationResult(String) {
+  case string.trim(value) {
+    "" -> Error([ValidationField(field, "This field is required")])
+    trimmed -> Ok(trimmed)
+  }
+}
+
+pub fn validate_email(email: String) -> ValidationResult(String) {
+  let trimmed = string.trim(email)
+  case string.contains(trimmed, "@") && string.contains(trimmed, ".") {
+    True -> Ok(trimmed)
+    False -> Error([ValidationField("email", "Please enter a valid email address")])
+  }
+}
+
+pub fn validate_url(url: String, field: String) -> ValidationResult(String) {
+  let trimmed = string.trim(url)
+  case string.starts_with(trimmed, "http://") || string.starts_with(trimmed, "https://") {
+    True -> Ok(trimmed)
+    False -> Error([ValidationField(field, "Please enter a valid URL starting with http:// or https://")])
+  }
+}
+
+pub fn combine_validation_results(results: List(ValidationResult(a))) -> ValidationResult(List(a)) {
+  list.fold(results, Ok([]), fn(acc, result) {
+    case acc, result {
+      Ok(values), Ok(value) -> Ok(list.prepend(values, value))
+      Ok(_), Error(errors) -> Error(errors)
+      Error(acc_errors), Ok(_) -> Error(acc_errors)
+      Error(acc_errors), Error(errors) -> Error(list.append(acc_errors, errors))
+    }
+  })
+  |> result.map(list.reverse)
 }

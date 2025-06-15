@@ -5,6 +5,7 @@ import gleam/http/response.{type Response}
 import gleam/int
 import gleam/io
 import gleam/json
+import middleware
 import mist
 import response_helpers
 import wisp
@@ -40,10 +41,16 @@ pub fn main() -> Nil {
 }
 
 fn handle_request(req: Request(mist.Connection), config: config.Config, services: config.ServiceConfig) -> Response(mist.ResponseData) {
-  case request.path_segments(req) {
-    [] -> handle_root(req, config, services)
-    ["health"] -> handle_health(req, config, services)
-    _ -> response_helpers.not_found()
+  case middleware.logging_middleware(req) {
+    Ok(logged_req) -> {
+      let response = case request.path_segments(logged_req) {
+        [] -> handle_root(logged_req, config, services)
+        ["health"] -> handle_health(logged_req, config, services)
+        _ -> response_helpers.not_found()
+      }
+      middleware.add_cors_headers(response)
+    }
+    Error(error) -> middleware.handle_error(error)
   }
 }
 

@@ -30,3 +30,27 @@ pub fn method_not_allowed() -> Response(mist.ResponseData) {
 pub fn internal_server_error(message: String) -> Response(mist.ResponseData) {
   error_response(api_types.InternalServerError(message))
 }
+
+pub fn validation_error_response(errors: List(api_types.ValidationField)) -> Response(mist.ResponseData) {
+  json_response(400, api_types.validation_errors_json(errors))
+}
+
+pub fn conflict_error(message: String) -> Response(mist.ResponseData) {
+  error_response(api_types.ConflictError(message))
+}
+
+pub fn too_many_requests(message: String) -> Response(mist.ResponseData) {
+  error_response(api_types.TooManyRequestsError(message))
+}
+
+pub fn unauthorized(message: String) -> Response(mist.ResponseData) {
+  error_response(api_types.UnauthorizedError(message))
+}
+
+pub fn forbidden(message: String) -> Response(mist.ResponseData) {
+  error_response(api_types.ForbiddenError(message))
+}
+
+pub fn bad_request(message: String) -> Response(mist.ResponseData) {
+  error_response(api_types.BadRequestError(message))
+}
