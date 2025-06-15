@@ -509,6 +509,132 @@ pub fn list_donations(
   Ok(parse_donations(resp.body))
 }
 
+pub fn get_donation(
+  client: SupabaseClient,
+  donation_id: Int,
+  user_id: String,
+) -> Result(Donation, DatabaseError) {
+  use req <- result.try(build_request(
+    client,
+    "GET",
+    "/donations?id=eq." <> string.inspect(donation_id) <> "&user_id=eq." <> user_id <> "&select=*",
+    False,
+  ))
+  
+  use resp <- result.try(send_request(req))
+  
+  case parse_donations(resp.body) {
+    [donation] -> Ok(donation)
+    [] -> Error(NotFound)
+    _ -> Error(ParseError("Multiple donations found"))
+  }
+}
+
+pub fn create_donation(
+  client: SupabaseClient,
+  charity_id: Int,
+  amount: String,
+  currency: String,
+  donation_date: String,
+  notes: Option(String),
+  user_id: String,
+) -> Result(Donation, DatabaseError) {
+  let donation_fields = [
+    "\"user_id\":\"" <> user_id <> "\"",
+    "\"charity_id\":" <> string.inspect(charity_id),
+    "\"amount\":\"" <> amount <> "\"",
+    "\"currency\":\"" <> currency <> "\"",
+    "\"donation_date\":\"" <> donation_date <> "\""
+  ]
+  let donation_fields = case notes {
+    option.Some(note_text) -> ["\"notes\":\"" <> note_text <> "\"", ..donation_fields]
+    option.None -> donation_fields
+  }
+  
+  let donation_data = "{" <> string.join(list.reverse(donation_fields), ",") <> "}"
+  
+  use req <- result.try(build_request(client, "POST", "/donations", False))
+  let req_with_body = request.set_body(req, donation_data)
+  
+  use resp <- result.try(send_request(req_with_body))
+  
+  case parse_donations(resp.body) {
+    [donation] -> Ok(donation)
+    [] -> Error(ParseError("No donation returned after creation"))
+    _ -> Error(ParseError("Multiple donations returned after creation"))
+  }
+}
+
+pub fn update_donation(
+  client: SupabaseClient,
+  donation_id: Int,
+  charity_id: Option(Int),
+  amount: Option(String),
+  currency: Option(String),
+  donation_date: Option(String),
+  notes: Option(String),
+  user_id: String,
+) -> Result(Donation, DatabaseError) {
+  let update_fields = []
+  let update_fields = case charity_id {
+    option.Some(cid) -> ["\"charity_id\":" <> string.inspect(cid), ..update_fields]
+    option.None -> update_fields
+  }
+  let update_fields = case amount {
+    option.Some(amt) -> ["\"amount\":\"" <> amt <> "\"", ..update_fields]
+    option.None -> update_fields
+  }
+  let update_fields = case currency {
+    option.Some(curr) -> ["\"currency\":\"" <> curr <> "\"", ..update_fields]
+    option.None -> update_fields
+  }
+  let update_fields = case donation_date {
+    option.Some(date) -> ["\"donation_date\":\"" <> date <> "\"", ..update_fields]
+    option.None -> update_fields
+  }
+  let update_fields = case notes {
+    option.Some(note_text) -> ["\"notes\":\"" <> note_text <> "\"", ..update_fields]
+    option.None -> update_fields
+  }
+  
+  let update_data = case update_fields {
+    [] -> "{}"
+    fields -> "{" <> string.join(list.reverse(fields), ",") <> "}"
+  }
+  
+  use req <- result.try(build_request(
+    client,
+    "PATCH",
+    "/donations?id=eq." <> string.inspect(donation_id) <> "&user_id=eq." <> user_id,
+    False,
+  ))
+  let req_with_body = request.set_body(req, update_data)
+  
+  use resp <- result.try(send_request(req_with_body))
+  
+  case parse_donations(resp.body) {
+    [donation] -> Ok(donation)
+    [] -> Error(NotFound)
+    _ -> Error(ParseError("Multiple donations updated"))
+  }
+}
+
+pub fn delete_donation(
+  client: SupabaseClient,
+  donation_id: Int,
+  user_id: String,
+) -> Result(Nil, DatabaseError) {
+  use req <- result.try(build_request(
+    client,
+    "DELETE",
+    "/donations?id=eq." <> string.inspect(donation_id) <> "&user_id=eq." <> user_id,
+    False,
+  ))
+  
+  use _resp <- result.try(send_request(req))
+  Ok(Nil)
+}
+
 fn parse_profiles(json_str: String) -> List(Profile) {
   let decoder = decode.list(profile_decoder())
   case json.parse(from: json_str, using: decoder) {

@@ -23,8 +23,8 @@ This TODO list is designed for an AI engineer to work through systematically, co
 - [x] Create Gleam database module with Supabase HTTP client
 - [x] Implement database query functions for profiles
 - [x] Implement database query functions for cause_areas
-- [ ] Implement database query functions for charities  
-- [ ] Implement database query functions for donations
+- [x] Implement database query functions for charities  
+- [x] Implement database query functions for donations
 
 ## Phase 2: Authentication & User Management
 
@@ -43,6 +43,8 @@ This TODO list is designed for an AI engineer to work through systematically, co
 ### Charity Management API
 - [ ] Create API endpoint for listing all charities (GET /api/charities)
 - [ ] Create API endpoint for getting single charity details (GET /api/charities/:id)
+- [ ] Create API endpoint for searching charities by name (GET /api/charities/search)
+- [ ] Create API endpoint for listing all charities owned by the user (GET /api/charities/user)
 - [ ] Create API endpoint for creating new charity (POST /api/charities)
 - [ ] Create API endpoint for updating charity (PUT /api/charities/:id)
 - [ ] Create API endpoint for deleting charity (DELETE /api/charities/:id)
@@ -56,6 +58,8 @@ This TODO list is designed for an AI engineer to work through systematically, co
 - [ ] Create API endpoint for deleting cause area (DELETE /api/cause-areas/:id)
 - [ ] Create API endpoint for assigning charity to cause area (POST /api/charities/:id/cause-areas)
 - [ ] Create API endpoint for removing charity from cause area (DELETE /api/charities/:id/cause-areas/:cause_id)
+- [ ] Create API endpoint for lising all charities by cause area (GET /api/charities/cause-area/:cause_id)
+
 
 ### Donations API
 - [ ] Create API endpoint for listing user's donations (GET /api/donations)
@@ -141,30 +145,8 @@ This TODO list is designed for an AI engineer to work through systematically, co
 - [ ] Create responsive design for mobile devices
 - [ ] Add keyboard navigation support
 
-### Testing & Validation
-- [ ] Test complete user registration and login flow
-- [ ] Test charity CRUD operations end-to-end
-- [ ] Test donation logging and editing end-to-end
-- [ ] Test dashboard data visualization accuracy
-- [ ] Test account management functionality
-- [ ] Verify all API endpoints return proper error codes
-- [ ] Test responsive design on various screen sizes
-
-## Phase 6: Deployment Preparation
-
-### Production Configuration
-- [ ] Set up production environment variables
-- [ ] Configure proper CORS settings for production
-- [ ] Set up production database with proper indexes
-- [ ] Configure Auth0 for production domain
-- [ ] Set up Cloudinary for production usage
-
-### Performance & Security
-- [ ] Implement API rate limiting
-- [ ] Add input sanitization and validation
-- [ ] Optimize database queries and add indexes
-- [ ] Minimize and optimize frontend bundle size
-- [ ] Add security headers and HTTPS enforcement
+### Deployment
+- [ ] Set up CI/CD pipeline for github pages hosting and github workflow/actions deployment.
 
 ---
 
