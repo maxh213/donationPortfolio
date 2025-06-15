@@ -167,6 +167,16 @@ pub type CharityCreateRequest {
   )
 }
 
+pub type CharityUpdateRequest {
+  CharityUpdateRequest(
+    name: option.Option(String),
+    website_url: option.Option(String),
+    description: option.Option(String),
+    logo_url: option.Option(String),
+    primary_cause_area_id: option.Option(Int),
+  )
+}
+
 fn update_profile(req: Request(mist.Connection), services: config.ServiceConfig) -> Response(mist.ResponseData) {
   case middleware.auth_middleware(req, services) {
     Ok(auth_req) -> {
@@ -349,6 +359,7 @@ fn handle_charities(req: Request(mist.Connection), _config: config.Config, servi
 fn handle_charity_details(req: Request(mist.Connection), _config: config.Config, services: config.ServiceConfig, charity_id_str: String) -> Response(mist.ResponseData) {
   case req.method {
     Get -> get_charity_details(req, services, charity_id_str)
+    Put -> update_charity_endpoint(req, services, charity_id_str)
     _ -> response_helpers.method_not_allowed()
   }
 }
@@ -660,5 +671,138 @@ fn search_charities(req: Request(mist.Connection), services: config.ServiceConfi
       }
     }
     Error(api_error) -> middleware.handle_error(api_error)
+  }
+}
+
+fn update_charity_endpoint(req: Request(mist.Connection), services: config.ServiceConfig, charity_id_str: String) -> Response(mist.ResponseData) {
+  case middleware.auth_middleware(req, services) {
+    Ok(auth_req) -> {
+      case int.parse(charity_id_str) {
+        Ok(charity_id) -> {
+          case middleware.json_content_type_middleware(auth_req.request) {
+            Ok(validated_req) -> {
+              case mist.read_body(validated_req, 1024 * 1024) {
+                Ok(body_request) -> {
+                  case bit_array.to_string(body_request.body) {
+                    Ok(body_string) -> {
+                      case parse_charity_update_request(body_string) {
+                        Ok(update_request) -> {
+                          let client = database.new_client(services.supabase)
+                          case database.update_charity(
+                            client,
+                            charity_id,
+                            update_request.name,
+                            update_request.website_url,
+                            update_request.description,
+                            update_request.logo_url,
+                            update_request.primary_cause_area_id,
+                            auth_req.user.id
+                          ) {
+                            Ok(charity) -> {
+                              let charity_json = json.object([
+                                #("id", json.int(charity.id)),
+                                #("name", json.string(charity.name)),
+                                #("website_url", case charity.website_url {
+                                  option.Some(url) -> json.string(url)
+                                  option.None -> json.null()
+                                }),
+                                #("description", case charity.description {
+                                  option.Some(desc) -> json.string(desc)
+                                  option.None -> json.null()
+                                }),
+                                #("logo_url", case charity.logo_url {
+                                  option.Some(url) -> json.string(url)
+                                  option.None -> json.null()
+                                }),
+                                #("primary_cause_area_id", case charity.primary_cause_area_id {
+                                  option.Some(id) -> json.int(id)
+                                  option.None -> json.null()
+                                }),
+                                #("created_by", json.string(charity.created_by)),
+                                #("created_at", json.string(charity.created_at)),
+                                #("updated_at", json.string(charity.updated_at))
+                              ])
+                              response_helpers.success_response(charity_json)
+                            }
+                            Error(database_error) -> {
+                              let api_error = middleware.database_error_to_api_error(database_error)
+                              middleware.handle_error(api_error)
+                            }
+                          }
+                        }
+                        Error(api_error) -> middleware.handle_error(api_error)
+                      }
+                    }
+                    Error(_) -> middleware.handle_error(api_types.BadRequestError("Failed to decode request body as UTF-8"))
+                  }
+                }
+                Error(_) -> middleware.handle_error(api_types.BadRequestError("Failed to read request body"))
+              }
+            }
+            Error(api_error) -> middleware.handle_error(api_error)
+          }
+        }
+        Error(_) -> middleware.handle_error(api_types.BadRequestError("Invalid charity ID format"))
+      }
+    }
+    Error(api_error) -> middleware.handle_error(api_error)
+  }
+}
+
+fn parse_charity_update_request(body: String) -> Result(CharityUpdateRequest, api_types.ApiError) {
+  let decoder = {
+    use name <- decode.field("name", decode.optional(decode.string))
+    use website_url <- decode.field("website_url", decode.optional(decode.string))
+    use description <- decode.field("description", decode.optional(decode.string))
+    use logo_url <- decode.field("logo_url", decode.optional(decode.string))
+    use primary_cause_area_id <- decode.field("primary_cause_area_id", decode.optional(decode.int))
+    decode.success(CharityUpdateRequest(
+      name: name,
+      website_url: website_url,
+      description: description,
+      logo_url: logo_url,
+      primary_cause_area_id: primary_cause_area_id
+    ))
+  }
+  
+  case json.parse(from: body, using: decoder) {
+    Ok(request) -> {
+      case request.name {
+        option.Some(name) -> {
+          case string.trim(name) {
+            "" -> Error(api_types.ValidationError("Charity name cannot be empty"))
+            _ -> {
+              case request.website_url {
+                option.Some(url) -> {
+                  case api_types.validate_url(url, "website_url") {
+                    Ok(_) -> Ok(request)
+                    Error(validation_errors) -> {
+                      let error_messages = list.map(validation_errors, fn(field) { field.message })
+                      Error(api_types.ValidationError(string.join(error_messages, "; ")))
+                    }
+                  }
+                }
+                option.None -> Ok(request)
+              }
+            }
+          }
+        }
+        option.None -> {
+          case request.website_url {
+            option.Some(url) -> {
+              case api_types.validate_url(url, "website_url") {
+                Ok(_) -> Ok(request)
+                Error(validation_errors) -> {
+                  let error_messages = list.map(validation_errors, fn(field) { field.message })
+                  Error(api_types.ValidationError(string.join(error_messages, "; ")))
+                }
+              }
+            }
+            option.None -> Ok(request)
+          }
+        }
+      }
+    }
+    Error(_) -> Error(api_types.BadRequestError("Invalid JSON format"))
   }
 }
