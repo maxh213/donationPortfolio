@@ -44,7 +44,7 @@ This TODO list is designed for an AI engineer to work through systematically, co
 - [x] Create API endpoint for listing all charities (GET /api/charities)
 - [x] Create API endpoint for getting single charity details (GET /api/charities/:id)
 - [x] Create API endpoint for searching charities by name (GET /api/charities/search)
-- [ ] Create API endpoint for listing all charities owned by the user (GET /api/charities/user)
+- [x] Create API endpoint for listing all charities owned by the user (GET /api/charities/user)
 - [ ] Create API endpoint for creating new charity (POST /api/charities)
 - [ ] Create API endpoint for updating charity (PUT /api/charities/:id)
 - [ ] Create API endpoint for deleting charity (DELETE /api/charities/:id)

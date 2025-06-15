@@ -65,6 +65,7 @@ fn handle_request(req: Request(mist.Connection), config: config.Config, services
         ["api", "profile"] -> handle_profile(logged_req, config, services)
         ["api", "profile", "picture"] -> handle_profile_picture(logged_req, config, services)
         ["api", "charities"] -> handle_charities(logged_req, config, services)
+        ["api", "charities", "user"] -> handle_user_charities(logged_req, config, services)
         ["api", "charities", "search"] -> handle_charities_search(logged_req, config, services)
         ["api", "charities", charity_id] -> handle_charity_details(logged_req, config, services, charity_id)
         _ -> response_helpers.not_found()
@@ -384,6 +385,49 @@ fn list_charities(req: Request(mist.Connection), services: config.ServiceConfig)
   }
 }
 
+fn list_user_charities(req: Request(mist.Connection), services: config.ServiceConfig) -> Response(mist.ResponseData) {
+  case middleware.auth_middleware(req, services) {
+    Ok(auth_req) -> {
+      let client = database.new_client(services.supabase)
+      case database.list_charities(client, auth_req.user.id) {
+        Ok(charities) -> {
+          let charities_json = json.array(charities, fn(charity) {
+            json.object([
+              #("id", json.int(charity.id)),
+              #("name", json.string(charity.name)),
+              #("website_url", case charity.website_url {
+                option.Some(url) -> json.string(url)
+                option.None -> json.null()
+              }),
+              #("description", case charity.description {
+                option.Some(desc) -> json.string(desc)
+                option.None -> json.null()
+              }),
+              #("logo_url", case charity.logo_url {
+                option.Some(url) -> json.string(url)
+                option.None -> json.null()
+              }),
+              #("primary_cause_area_id", case charity.primary_cause_area_id {
+                option.Some(id) -> json.int(id)
+                option.None -> json.null()
+              }),
+              #("created_by", json.string(charity.created_by)),
+              #("created_at", json.string(charity.created_at)),
+              #("updated_at", json.string(charity.updated_at))
+            ])
+          })
+          response_helpers.success_response(charities_json)
+        }
+        Error(database_error) -> {
+          let api_error = middleware.database_error_to_api_error(database_error)
+          middleware.handle_error(api_error)
+        }
+      }
+    }
+    Error(api_error) -> middleware.handle_error(api_error)
+  }
+}
+
 fn get_charity_details(req: Request(mist.Connection), services: config.ServiceConfig, charity_id_str: String) -> Response(mist.ResponseData) {
   case middleware.auth_middleware(req, services) {
     Ok(auth_req) -> {
@@ -427,6 +471,13 @@ fn get_charity_details(req: Request(mist.Connection), services: config.ServiceCo
       }
     }
     Error(api_error) -> middleware.handle_error(api_error)
+  }
+}
+
+fn handle_user_charities(req: Request(mist.Connection), _config: config.Config, services: config.ServiceConfig) -> Response(mist.ResponseData) {
+  case req.method {
+    Get -> list_user_charities(req, services)
+    _ -> response_helpers.method_not_allowed()
   }
 }
 
