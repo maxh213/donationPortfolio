@@ -53,7 +53,7 @@ This TODO list is designed for an AI engineer to work through systematically, co
 
 ### Cause Areas API
 - [x] Create API endpoint for listing all cause areas (GET /api/cause-areas)
-- [ ] Create API endpoint for creating new cause area (POST /api/cause-areas)
+- [x] Create API endpoint for creating new cause area (POST /api/cause-areas)
 - [ ] Create API endpoint for updating cause area (PUT /api/cause-areas/:id)
 - [ ] Create API endpoint for deleting cause area (DELETE /api/cause-areas/:id)
 - [ ] Create API endpoint for assigning charity to cause area (POST /api/charities/:id/cause-areas)
@@ -146,7 +146,7 @@ This TODO list is designed for an AI engineer to work through systematically, co
 - [ ] Add keyboard navigation support
 
 ### Deployment
-- [ ] Set up CI/CD pipeline for github pages hosting and github workflow/actions deployment.
+- [ ] Set up deployment pipeline to fly.io
 
 ---
 

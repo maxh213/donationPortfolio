@@ -179,6 +179,14 @@ pub type CharityUpdateRequest {
   )
 }
 
+pub type CauseAreaCreateRequest {
+  CauseAreaCreateRequest(
+    name: String,
+    description: option.Option(String),
+    color_hex: option.Option(String),
+  )
+}
+
 fn update_profile(req: Request(mist.Connection), services: config.ServiceConfig) -> Response(mist.ResponseData) {
   case middleware.auth_middleware(req, services) {
     Ok(auth_req) -> {
@@ -920,6 +928,7 @@ fn parse_charity_update_request(body: String) -> Result(CharityUpdateRequest, ap
 fn handle_cause_areas(req: Request(mist.Connection), _config: config.Config, services: config.ServiceConfig) -> Response(mist.ResponseData) {
   case req.method {
     Get -> list_cause_areas_endpoint(req, services)
+    Post -> create_cause_area_endpoint(req, services)
     _ -> response_helpers.method_not_allowed()
   }
 }
@@ -956,6 +965,134 @@ fn list_cause_areas_endpoint(req: Request(mist.Connection), services: config.Ser
       }
     }
     Error(api_error) -> middleware.handle_error(api_error)
+  }
+}
+
+fn create_cause_area_endpoint(req: Request(mist.Connection), services: config.ServiceConfig) -> Response(mist.ResponseData) {
+  case middleware.auth_middleware(req, services) {
+    Ok(auth_req) -> {
+      case middleware.json_content_type_middleware(auth_req.request) {
+        Ok(validated_req) -> {
+          case mist.read_body(validated_req, 1024 * 1024) {
+            Ok(body_request) -> {
+              case bit_array.to_string(body_request.body) {
+                Ok(body_string) -> {
+                  case parse_cause_area_create_request(body_string) {
+                    Ok(create_request) -> {
+                      let client = database.new_client(services.supabase)
+                      case database.create_cause_area(
+                        client,
+                        create_request.name,
+                        create_request.description,
+                        create_request.color_hex,
+                        auth_req.user.id
+                      ) {
+                        Ok(cause_area) -> {
+                          let cause_area_json = json.object([
+                            #("id", json.int(cause_area.id)),
+                            #("name", json.string(cause_area.name)),
+                            #("description", case cause_area.description {
+                              option.Some(desc) -> json.string(desc)
+                              option.None -> json.null()
+                            }),
+                            #("color_hex", case cause_area.color_hex {
+                              option.Some(color) -> json.string(color)
+                              option.None -> json.null()
+                            }),
+                            #("created_by", json.string(cause_area.created_by)),
+                            #("created_at", json.string(cause_area.created_at)),
+                            #("updated_at", json.string(cause_area.updated_at))
+                          ])
+                          response_helpers.success_response(cause_area_json)
+                        }
+                        Error(database_error) -> {
+                          let api_error = middleware.database_error_to_api_error(database_error)
+                          middleware.handle_error(api_error)
+                        }
+                      }
+                    }
+                    Error(api_error) -> middleware.handle_error(api_error)
+                  }
+                }
+                Error(_) -> middleware.handle_error(api_types.BadRequestError("Failed to decode request body as UTF-8"))
+              }
+            }
+            Error(_) -> middleware.handle_error(api_types.BadRequestError("Failed to read request body"))
+          }
+        }
+        Error(api_error) -> middleware.handle_error(api_error)
+      }
+    }
+    Error(api_error) -> middleware.handle_error(api_error)
+  }
+}
+
+fn parse_cause_area_create_request(body: String) -> Result(CauseAreaCreateRequest, api_types.ApiError) {
+  let decoder = {
+    use name <- decode.field("name", decode.string)
+    use description <- decode.field("description", decode.optional(decode.string))
+    use color_hex <- decode.field("color_hex", decode.optional(decode.string))
+    decode.success(CauseAreaCreateRequest(
+      name: name,
+      description: description,
+      color_hex: color_hex
+    ))
+  }
+  
+  case json.parse(from: body, using: decoder) {
+    Ok(request) -> validate_cause_area_create_request(request)
+    Error(_) -> Error(api_types.BadRequestError("Invalid JSON format"))
+  }
+}
+
+fn validate_cause_area_create_request(request: CauseAreaCreateRequest) -> Result(CauseAreaCreateRequest, api_types.ApiError) {
+  let name_validation = api_types.validate_required_string(request.name, "name")
+  let name_length_validation = api_types.validate_string_length(request.name, "name", 1, 100)
+  
+  let description_validation = case request.description {
+    option.Some(desc) -> api_types.validate_string_length(desc, "description", 0, 500)
+    option.None -> Ok("")
+  }
+  
+  let color_hex_validation = case request.color_hex {
+    option.Some(color) -> validate_hex_color(color, "color_hex")
+    option.None -> Ok("")
+  }
+  
+  let validations = [
+    name_validation,
+    name_length_validation,
+    description_validation,
+    color_hex_validation
+  ]
+  
+  case api_types.combine_validation_results(validations) {
+    Ok(_) -> Ok(request)
+    Error(validation_errors) -> {
+      let error_messages = list.map(validation_errors, fn(field) { field.message })
+      Error(api_types.ValidationError(string.join(error_messages, "; ")))
+    }
+  }
+}
+
+fn validate_hex_color(color: String, field_name: String) -> api_types.ValidationResult(String) {
+  let trimmed_color = string.trim(color)
+  case string.starts_with(trimmed_color, "#") && string.length(trimmed_color) == 7 {
+    True -> {
+      let hex_part = string.drop_start(trimmed_color, 1)
+      case string.to_graphemes(hex_part) |> list.all(fn(char) {
+        case char {
+          "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" |
+          "A" | "B" | "C" | "D" | "E" | "F" |
+          "a" | "b" | "c" | "d" | "e" | "f" -> True
+          _ -> False
+        }
+      }) {
+        True -> Ok(trimmed_color)
+        False -> Error([api_types.ValidationField(field_name, "must contain only valid hexadecimal characters")])
+      }
+    }
+    False -> Error([api_types.ValidationField(field_name, "must be a valid hex color (e.g., #FF5733)")])
   }
 }
 
