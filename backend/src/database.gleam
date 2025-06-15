@@ -142,6 +142,85 @@ pub fn get_profile(
   }
 }
 
+pub fn create_profile(
+  client: SupabaseClient,
+  user_id: String,
+  email: String,
+  full_name: Option(String),
+  profile_picture_url: Option(String),
+) -> Result(Profile, DatabaseError) {
+  let profile_data = case full_name, profile_picture_url {
+    option.Some(name), option.Some(pic_url) -> 
+      "{\"id\":\"" <> user_id <> "\",\"email\":\"" <> email <> "\",\"full_name\":\"" <> name <> "\",\"profile_picture_url\":\"" <> pic_url <> "\"}"
+    option.Some(name), option.None -> 
+      "{\"id\":\"" <> user_id <> "\",\"email\":\"" <> email <> "\",\"full_name\":\"" <> name <> "\"}"
+    option.None, option.Some(pic_url) -> 
+      "{\"id\":\"" <> user_id <> "\",\"email\":\"" <> email <> "\",\"profile_picture_url\":\"" <> pic_url <> "\"}"
+    option.None, option.None -> 
+      "{\"id\":\"" <> user_id <> "\",\"email\":\"" <> email <> "\"}"
+  }
+  
+  use req <- result.try(build_request(client, "POST", "/profiles", False))
+  let req_with_body = request.set_body(req, profile_data)
+  
+  use resp <- result.try(send_request(req_with_body))
+  
+  case parse_profiles(resp.body) {
+    [profile] -> Ok(profile)
+    [] -> Error(ParseError("No profile returned after creation"))
+    _ -> Error(ParseError("Multiple profiles returned after creation"))
+  }
+}
+
+pub fn update_profile(
+  client: SupabaseClient,
+  user_id: String,
+  full_name: Option(String),
+  profile_picture_url: Option(String),
+) -> Result(Profile, DatabaseError) {
+  let update_data = case full_name, profile_picture_url {
+    option.Some(name), option.Some(pic_url) -> 
+      "{\"full_name\":\"" <> name <> "\",\"profile_picture_url\":\"" <> pic_url <> "\"}"
+    option.Some(name), option.None -> 
+      "{\"full_name\":\"" <> name <> "\"}"
+    option.None, option.Some(pic_url) -> 
+      "{\"profile_picture_url\":\"" <> pic_url <> "\"}"
+    option.None, option.None -> 
+      "{}"
+  }
+  
+  use req <- result.try(build_request(
+    client,
+    "PATCH",
+    "/profiles?id=eq." <> user_id,
+    False,
+  ))
+  let req_with_body = request.set_body(req, update_data)
+  
+  use resp <- result.try(send_request(req_with_body))
+  
+  case parse_profiles(resp.body) {
+    [profile] -> Ok(profile)
+    [] -> Error(NotFound)
+    _ -> Error(ParseError("Multiple profiles updated"))
+  }
+}
+
+pub fn delete_profile(
+  client: SupabaseClient,
+  user_id: String,
+) -> Result(Nil, DatabaseError) {
+  use req <- result.try(build_request(
+    client,
+    "DELETE",
+    "/profiles?id=eq." <> user_id,
+    False,
+  ))
+  
+  use _resp <- result.try(send_request(req))
+  Ok(Nil)
+}
+
 pub fn list_cause_areas(
   client: SupabaseClient,
   user_id: String,
