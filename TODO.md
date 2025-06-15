@@ -14,8 +14,8 @@ This TODO list is designed for an AI engineer to work through systematically, co
 
 ### Database Setup (Supabase)
 - [x] Analyze database schema requirements and create comprehensive design (see DATABASE_SCHEMA_ANALYSIS.md)
-- [ ] Create Supabase migration files for the optimized schema:
-  - profiles table (linked to auth.users)
+- [x] Create Supabase migration files for the optimized schema:
+  - profiles table (linked to auth.users)  
   - cause_areas table (user-owned categories)
   - charities table (user-owned with Cloudinary logo support)
   - donations table (with proper indexing and constraints)
