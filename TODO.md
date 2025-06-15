@@ -48,7 +48,7 @@ This TODO list is designed for an AI engineer to work through systematically, co
 - [x] Create API endpoint for creating new charity (POST /api/charities)
 - [x] Create API endpoint for updating charity (PUT /api/charities/:id)
 - [x] Create API endpoint for deleting charity (DELETE /api/charities/:id)
-- [ ] Implement Cloudinary integration for charity logo uploads
+- [x] Implement Cloudinary integration for charity logo uploads
 - [ ] Add validation for charity data (required fields, URL format, etc.)
 
 ### Cause Areas API

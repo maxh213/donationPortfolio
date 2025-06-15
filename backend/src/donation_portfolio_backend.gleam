@@ -68,6 +68,7 @@ fn handle_request(req: Request(mist.Connection), config: config.Config, services
         ["api", "charities", "user"] -> handle_user_charities(logged_req, config, services)
         ["api", "charities", "search"] -> handle_charities_search(logged_req, config, services)
         ["api", "charities", charity_id] -> handle_charity_details(logged_req, config, services, charity_id)
+        ["api", "charities", charity_id, "logo"] -> handle_charity_logo(logged_req, config, services, charity_id)
         _ -> response_helpers.not_found()
       }
       middleware.add_cors_headers(response)
@@ -511,6 +512,13 @@ fn handle_charities_search(req: Request(mist.Connection), _config: config.Config
   }
 }
 
+fn handle_charity_logo(req: Request(mist.Connection), _config: config.Config, services: config.ServiceConfig, charity_id_str: String) -> Response(mist.ResponseData) {
+  case req.method {
+    Post -> upload_charity_logo(req, services, charity_id_str)
+    _ -> response_helpers.method_not_allowed()
+  }
+}
+
 fn create_charity_endpoint(req: Request(mist.Connection), services: config.ServiceConfig) -> Response(mist.ResponseData) {
   case middleware.auth_middleware(req, services) {
     Ok(auth_req) -> {
@@ -768,6 +776,91 @@ fn delete_charity_endpoint(req: Request(mist.Connection), services: config.Servi
               let api_error = middleware.database_error_to_api_error(database_error)
               middleware.handle_error(api_error)
             }
+          }
+        }
+        Error(_) -> middleware.handle_error(api_types.BadRequestError("Invalid charity ID format"))
+      }
+    }
+    Error(api_error) -> middleware.handle_error(api_error)
+  }
+}
+
+fn upload_charity_logo(req: Request(mist.Connection), services: config.ServiceConfig, charity_id_str: String) -> Response(mist.ResponseData) {
+  case middleware.auth_middleware(req, services) {
+    Ok(auth_req) -> {
+      case int.parse(charity_id_str) {
+        Ok(charity_id) -> {
+          case middleware.multipart_content_type_middleware(auth_req.request) {
+            Ok(validated_req) -> {
+              case mist.read_body(validated_req, 10 * 1024 * 1024) {
+                Ok(body_request) -> {
+                  let upload_preset = "charity_logos"
+                  let public_id = "charity_" <> charity_id_str
+                  
+                  case cloudinary.upload_image(services.cloudinary, body_request.body, upload_preset, public_id) {
+                    Ok(upload_result) -> {
+                      let client = database.new_client(services.supabase)
+                      case database.update_charity(
+                        client,
+                        charity_id,
+                        option.None,
+                        option.None,
+                        option.None,
+                        option.Some(upload_result.secure_url),
+                        option.None,
+                        auth_req.user.id
+                      ) {
+                        Ok(charity) -> {
+                          let response_data = json.object([
+                            #("message", json.string("Charity logo uploaded successfully")),
+                            #("logo_url", json.string(upload_result.secure_url)),
+                            #("charity", json.object([
+                              #("id", json.int(charity.id)),
+                              #("name", json.string(charity.name)),
+                              #("website_url", case charity.website_url {
+                                option.Some(url) -> json.string(url)
+                                option.None -> json.null()
+                              }),
+                              #("description", case charity.description {
+                                option.Some(desc) -> json.string(desc)
+                                option.None -> json.null()
+                              }),
+                              #("logo_url", case charity.logo_url {
+                                option.Some(url) -> json.string(url)
+                                option.None -> json.null()
+                              }),
+                              #("primary_cause_area_id", case charity.primary_cause_area_id {
+                                option.Some(id) -> json.int(id)
+                                option.None -> json.null()
+                              }),
+                              #("created_by", json.string(charity.created_by)),
+                              #("created_at", json.string(charity.created_at)),
+                              #("updated_at", json.string(charity.updated_at))
+                            ]))
+                          ])
+                          response_helpers.success_response(response_data)
+                        }
+                        Error(database_error) -> {
+                          let api_error = middleware.database_error_to_api_error(database_error)
+                          middleware.handle_error(api_error)
+                        }
+                      }
+                    }
+                    Error(cloudinary_error) -> {
+                      let api_error = case cloudinary_error {
+                        cloudinary.NetworkError(msg) -> api_types.InternalServerError("Cloudinary network error: " <> msg)
+                        cloudinary.AuthenticationError(msg) -> api_types.InternalServerError("Cloudinary authentication error: " <> msg)
+                        cloudinary.ValidationError(msg) -> api_types.BadRequestError("Invalid image: " <> msg)
+                        cloudinary.UnknownError(msg) -> api_types.InternalServerError("Cloudinary error: " <> msg)
+                      }
+                      middleware.handle_error(api_error)
+                    }
+                  }
+                }
+                Error(_) -> middleware.handle_error(api_types.BadRequestError("Failed to read request body"))
+              }
+            }
+            Error(api_error) -> middleware.handle_error(api_error)
           }
         }
         Error(_) -> middleware.handle_error(api_types.BadRequestError("Invalid charity ID format"))
