@@ -143,7 +143,7 @@ fn auth_validation_error_to_api_error(error: ValidationError) -> ApiError {
   }
 }
 
-fn database_error_to_api_error(error: DatabaseError) -> ApiError {
+pub fn database_error_to_api_error(error: DatabaseError) -> ApiError {
   case error {
     database.RequestError(msg) -> api_types.InternalServerError("Database request error: " <> msg)
     database.ParseError(msg) -> api_types.InternalServerError("Database parse error: " <> msg)

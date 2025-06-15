@@ -1,10 +1,13 @@
 import config
+import database
 import gleam/erlang/process
+import gleam/http.{Get}
 import gleam/http/request.{type Request}
 import gleam/http/response.{type Response}
 import gleam/int
 import gleam/io
 import gleam/json
+import gleam/option
 import middleware
 import mist
 import response_helpers
@@ -46,6 +49,7 @@ fn handle_request(req: Request(mist.Connection), config: config.Config, services
       let response = case request.path_segments(logged_req) {
         [] -> handle_root(logged_req, config, services)
         ["health"] -> handle_health(logged_req, config, services)
+        ["api", "profile"] -> handle_profile(logged_req, config, services)
         _ -> response_helpers.not_found()
       }
       middleware.add_cors_headers(response)
@@ -78,4 +82,43 @@ fn handle_health(_req: Request(mist.Connection), _config: config.Config, service
     ]))
   ])
   response_helpers.success_response(data)
+}
+
+fn handle_profile(req: Request(mist.Connection), _config: config.Config, services: config.ServiceConfig) -> Response(mist.ResponseData) {
+  case req.method {
+    Get -> get_profile(req, services)
+    _ -> response_helpers.method_not_allowed()
+  }
+}
+
+fn get_profile(req: Request(mist.Connection), services: config.ServiceConfig) -> Response(mist.ResponseData) {
+  case middleware.auth_middleware(req, services) {
+    Ok(auth_req) -> {
+      let client = database.new_client(services.supabase)
+      case database.get_profile(client, auth_req.user.id) {
+        Ok(profile) -> {
+          let profile_json = json.object([
+            #("id", json.string(profile.id)),
+            #("email", json.string(profile.email)),
+            #("full_name", case profile.full_name {
+              option.Some(name) -> json.string(name)
+              option.None -> json.null()
+            }),
+            #("profile_picture_url", case profile.profile_picture_url {
+              option.Some(url) -> json.string(url)
+              option.None -> json.null()
+            }),
+            #("created_at", json.string(profile.created_at)),
+            #("updated_at", json.string(profile.updated_at))
+          ])
+          response_helpers.success_response(profile_json)
+        }
+        Error(database_error) -> {
+          let api_error = middleware.database_error_to_api_error(database_error)
+          middleware.handle_error(api_error)
+        }
+      }
+    }
+    Error(api_error) -> middleware.handle_error(api_error)
+  }
 }
