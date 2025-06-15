@@ -5,7 +5,7 @@ import database
 import dot_env as dotenv
 import gleam/erlang/process
 import gleam/dynamic/decode
-import gleam/http.{Get, Post, Put}
+import gleam/http.{Get, Post, Put, Delete}
 import gleam/http/request.{type Request}
 import gleam/http/response.{type Response}
 import gleam/int
@@ -101,6 +101,7 @@ fn handle_profile(req: Request(mist.Connection), _config: config.Config, service
   case req.method {
     Get -> get_profile(req, services)
     Put -> update_profile(req, services)
+    Delete -> delete_account(req, services)
     _ -> response_helpers.method_not_allowed()
   }
 }
@@ -209,6 +210,28 @@ fn update_profile(req: Request(mist.Connection), services: config.ServiceConfig)
           }
         }
         Error(api_error) -> middleware.handle_error(api_error)
+      }
+    }
+    Error(api_error) -> middleware.handle_error(api_error)
+  }
+}
+
+fn delete_account(req: Request(mist.Connection), services: config.ServiceConfig) -> Response(mist.ResponseData) {
+  case middleware.auth_middleware(req, services) {
+    Ok(auth_req) -> {
+      let client = database.new_client(services.supabase)
+      case database.delete_profile(client, auth_req.user.id) {
+        Ok(_) -> {
+          let response_data = json.object([
+            #("message", json.string("Account deleted successfully")),
+            #("user_id", json.string(auth_req.user.id))
+          ])
+          response_helpers.success_response(response_data)
+        }
+        Error(database_error) -> {
+          let api_error = middleware.database_error_to_api_error(database_error)
+          middleware.handle_error(api_error)
+        }
       }
     }
     Error(api_error) -> middleware.handle_error(api_error)
