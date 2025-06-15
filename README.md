@@ -24,3 +24,44 @@ Future Enhancements (not to be done yet, but to be considered when designing the
 - Add a personal profile page which shows graphs and donations along with the user's name, profile, and a description of their choice which is publically shareable if they enable it. 
 - Add a list of recommended charities by the website (Anima International, Fish welfare Initiative, Against Malaria Foundation, etc.) and recommend them to be added with one click. 
 
+## Development Setup
+
+### Prerequisites
+- [Gleam](https://gleam.run/getting-started/installing/) installed on your system
+- Erlang/OTP (usually installed with Gleam)
+
+### Running the Backend
+
+1. Navigate to the backend directory:
+   ```bash
+   cd backend
+   ```
+
+2. Install dependencies:
+   ```bash
+   gleam deps download
+   ```
+
+3. Run the development server:
+   ```bash
+   gleam run
+   ```
+
+The API server will start on `http://localhost:8000`
+
+### Available Endpoints
+
+- `GET /` - Welcome page
+- `GET /health` - Health check endpoint (returns JSON status)
+
+### Running Tests
+
+```bash
+cd backend
+gleam test
+```
+
+### Environment Variables
+
+- `PORT` - Server port (defaults to 8000)
+
