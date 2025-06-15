@@ -1,3 +1,4 @@
+import config
 import gleam/bytes_tree
 import gleam/erlang/process
 import gleam/http/request.{type Request}
@@ -11,19 +12,25 @@ import wisp
 pub fn main() -> Nil {
   wisp.configure_logger()
   
-  let port = 8000
+  let config = case config.load() {
+    Ok(config) -> config
+    Error(msg) -> {
+      io.println_error("Configuration error: " <> msg)
+      panic as "Failed to load configuration"
+    }
+  }
   
   let assert Ok(_) =
-    fn(req) { handle_request(req) }
+    fn(req) { handle_request(req, config) }
     |> mist.new
-    |> mist.port(port)
+    |> mist.port(config.port)
     |> mist.start_http
   
-  io.println("Server started on http://localhost:" <> int.to_string(port))
+  io.println("Server started on http://localhost:" <> int.to_string(config.port))
   process.sleep_forever()
 }
 
-fn handle_request(req: Request(mist.Connection)) -> Response(mist.ResponseData) {
+fn handle_request(req: Request(mist.Connection), config: config.Config) -> Response(mist.ResponseData) {
   case request.path_segments(req) {
     [] -> {
       response.new(200)
