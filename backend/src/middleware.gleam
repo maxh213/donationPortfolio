@@ -1,10 +1,12 @@
 import api_types.{type ApiError}
 import auth0.{type User, type ValidationError}
 import config.{type ServiceConfig}
+import database.{type DatabaseError}
 import gleam/http.{Get, Post, Put, Delete, Patch, Head, Options, Connect, Trace, Other}
 import gleam/http/request.{type Request}
 import gleam/http/response.{type Response}
 import gleam/io
+import gleam/option
 import gleam/result
 import gleam/string
 import mist
@@ -121,6 +123,11 @@ pub fn auth_middleware(req: Request(a), services: ServiceConfig) -> Result(Authe
     |> result.map_error(auth_validation_error_to_api_error)
   )
   
+  use _profile <- result.try(
+    sync_user_profile(user, services)
+    |> result.map_error(database_error_to_api_error)
+  )
+  
   Ok(AuthenticatedRequest(request: req, user: user))
 }
 
@@ -134,4 +141,34 @@ fn auth_validation_error_to_api_error(error: ValidationError) -> ApiError {
     auth0.NetworkError(msg) -> api_types.InternalServerError("Authentication service error: " <> msg)
     auth0.ParseError(msg) -> api_types.UnauthorizedError("Token parsing error: " <> msg)
   }
+}
+
+fn database_error_to_api_error(error: DatabaseError) -> ApiError {
+  case error {
+    database.RequestError(msg) -> api_types.InternalServerError("Database request error: " <> msg)
+    database.ParseError(msg) -> api_types.InternalServerError("Database parse error: " <> msg)
+    database.NotFound -> api_types.NotFoundError("Resource not found")
+    database.AuthenticationError -> api_types.UnauthorizedError("Database authentication failed")
+    database.PermissionError -> api_types.ForbiddenError("Database permission denied")
+  }
+}
+
+fn sync_user_profile(user: User, services: ServiceConfig) -> Result(database.Profile, DatabaseError) {
+  let client = database.new_client(services.supabase)
+  let full_name = case string.trim(user.name) {
+    "" -> option.None
+    name -> option.Some(name)
+  }
+  let profile_picture_url = case string.trim(user.picture) {
+    "" -> option.None
+    url -> option.Some(url)
+  }
+  
+  database.get_or_create_profile(
+    client,
+    user.id,
+    user.email,
+    full_name,
+    profile_picture_url,
+  )
 }

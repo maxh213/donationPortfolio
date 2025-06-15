@@ -172,6 +172,20 @@ pub fn create_profile(
   }
 }
 
+pub fn get_or_create_profile(
+  client: SupabaseClient,
+  user_id: String,
+  email: String,
+  full_name: Option(String),
+  profile_picture_url: Option(String),
+) -> Result(Profile, DatabaseError) {
+  case get_profile(client, user_id) {
+    Ok(profile) -> Ok(profile)
+    Error(NotFound) -> create_profile(client, user_id, email, full_name, profile_picture_url)
+    Error(other_error) -> Error(other_error)
+  }
+}
+
 pub fn update_profile(
   client: SupabaseClient,
   user_id: String,
