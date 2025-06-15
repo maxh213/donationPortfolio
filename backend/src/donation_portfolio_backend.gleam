@@ -69,6 +69,7 @@ fn handle_request(req: Request(mist.Connection), config: config.Config, services
         ["api", "charities", "search"] -> handle_charities_search(logged_req, config, services)
         ["api", "charities", charity_id] -> handle_charity_details(logged_req, config, services, charity_id)
         ["api", "charities", charity_id, "logo"] -> handle_charity_logo(logged_req, config, services, charity_id)
+        ["api", "charities", charity_id, "cause-areas"] -> handle_charity_cause_areas(logged_req, config, services, charity_id)
         ["api", "cause-areas"] -> handle_cause_areas(logged_req, config, services)
         ["api", "cause-areas", cause_area_id] -> handle_cause_area_details(logged_req, config, services, cause_area_id)
         _ -> response_helpers.not_found()
@@ -193,6 +194,12 @@ pub type CauseAreaUpdateRequest {
     name: option.Option(String),
     description: option.Option(String),
     color_hex: option.Option(String),
+  )
+}
+
+pub type CharityCauseAreaAssignRequest {
+  CharityCauseAreaAssignRequest(
+    cause_area_id: Int,
   )
 }
 
@@ -533,6 +540,13 @@ fn handle_charities_search(req: Request(mist.Connection), _config: config.Config
 fn handle_charity_logo(req: Request(mist.Connection), _config: config.Config, services: config.ServiceConfig, charity_id_str: String) -> Response(mist.ResponseData) {
   case req.method {
     Post -> upload_charity_logo(req, services, charity_id_str)
+    _ -> response_helpers.method_not_allowed()
+  }
+}
+
+fn handle_charity_cause_areas(req: Request(mist.Connection), _config: config.Config, services: config.ServiceConfig, charity_id_str: String) -> Response(mist.ResponseData) {
+  case req.method {
+    Post -> assign_charity_to_cause_area(req, services, charity_id_str)
     _ -> response_helpers.method_not_allowed()
   }
 }
@@ -1299,6 +1313,108 @@ fn validate_charity_update_request(request: CharityUpdateRequest) -> Result(Char
   ]
   
   case api_types.combine_validation_results(validations) {
+    Ok(_) -> Ok(request)
+    Error(validation_errors) -> {
+      let error_messages = list.map(validation_errors, fn(field) { field.message })
+      Error(api_types.ValidationError(string.join(error_messages, "; ")))
+    }
+  }
+}
+
+fn assign_charity_to_cause_area(req: Request(mist.Connection), services: config.ServiceConfig, charity_id_str: String) -> Response(mist.ResponseData) {
+  case middleware.auth_middleware(req, services) {
+    Ok(auth_req) -> {
+      case int.parse(charity_id_str) {
+        Ok(charity_id) -> {
+          case middleware.json_content_type_middleware(auth_req.request) {
+            Ok(validated_req) -> {
+              case mist.read_body(validated_req, 1024 * 1024) {
+                Ok(body_request) -> {
+                  case bit_array.to_string(body_request.body) {
+                    Ok(body_string) -> {
+                      case parse_charity_cause_area_assign_request(body_string) {
+                        Ok(assign_request) -> {
+                          let client = database.new_client(services.supabase)
+                          case database.update_charity(
+                            client,
+                            charity_id,
+                            option.None,
+                            option.None,
+                            option.None,
+                            option.None,
+                            option.Some(assign_request.cause_area_id),
+                            auth_req.user.id
+                          ) {
+                            Ok(charity) -> {
+                              let response_data = json.object([
+                                #("message", json.string("Charity assigned to cause area successfully")),
+                                #("charity_id", json.int(charity_id)),
+                                #("cause_area_id", json.int(assign_request.cause_area_id)),
+                                #("charity", json.object([
+                                  #("id", json.int(charity.id)),
+                                  #("name", json.string(charity.name)),
+                                  #("website_url", case charity.website_url {
+                                    option.Some(url) -> json.string(url)
+                                    option.None -> json.null()
+                                  }),
+                                  #("description", case charity.description {
+                                    option.Some(desc) -> json.string(desc)
+                                    option.None -> json.null()
+                                  }),
+                                  #("logo_url", case charity.logo_url {
+                                    option.Some(url) -> json.string(url)
+                                    option.None -> json.null()
+                                  }),
+                                  #("primary_cause_area_id", case charity.primary_cause_area_id {
+                                    option.Some(id) -> json.int(id)
+                                    option.None -> json.null()
+                                  }),
+                                  #("created_by", json.string(charity.created_by)),
+                                  #("created_at", json.string(charity.created_at)),
+                                  #("updated_at", json.string(charity.updated_at))
+                                ]))
+                              ])
+                              response_helpers.success_response(response_data)
+                            }
+                            Error(database_error) -> {
+                              let api_error = middleware.database_error_to_api_error(database_error)
+                              middleware.handle_error(api_error)
+                            }
+                          }
+                        }
+                        Error(api_error) -> middleware.handle_error(api_error)
+                      }
+                    }
+                    Error(_) -> middleware.handle_error(api_types.BadRequestError("Failed to decode request body as UTF-8"))
+                  }
+                }
+                Error(_) -> middleware.handle_error(api_types.BadRequestError("Failed to read request body"))
+              }
+            }
+            Error(api_error) -> middleware.handle_error(api_error)
+          }
+        }
+        Error(_) -> middleware.handle_error(api_types.BadRequestError("Invalid charity ID format"))
+      }
+    }
+    Error(api_error) -> middleware.handle_error(api_error)
+  }
+}
+
+fn parse_charity_cause_area_assign_request(body: String) -> Result(CharityCauseAreaAssignRequest, api_types.ApiError) {
+  let decoder = {
+    use cause_area_id <- decode.field("cause_area_id", decode.int)
+    decode.success(CharityCauseAreaAssignRequest(cause_area_id: cause_area_id))
+  }
+  
+  case json.parse(from: body, using: decoder) {
+    Ok(request) -> validate_charity_cause_area_assign_request(request)
+    Error(_) -> Error(api_types.BadRequestError("Invalid JSON format"))
+  }
+}
+
+fn validate_charity_cause_area_assign_request(request: CharityCauseAreaAssignRequest) -> Result(CharityCauseAreaAssignRequest, api_types.ApiError) {
+  case api_types.validate_positive_integer(request.cause_area_id, "cause_area_id") {
     Ok(_) -> Ok(request)
     Error(validation_errors) -> {
       let error_messages = list.map(validation_errors, fn(field) { field.message })
