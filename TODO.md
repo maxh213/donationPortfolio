@@ -19,8 +19,8 @@ This TODO list is designed for an AI engineer to work through systematically, co
   - cause_areas table (user-owned categories)
   - charities table (user-owned with Cloudinary logo support)
   - donations table (with proper indexing and constraints)
-- [ ] Implement Row Level Security (RLS) policies for all tables
-- [ ] Create Gleam database module with Supabase HTTP client
+- [x] Implement Row Level Security (RLS) policies for all tables
+- [x] Create Gleam database module with Supabase HTTP client
 - [ ] Implement database query functions for profiles
 - [ ] Implement database query functions for cause_areas
 - [ ] Implement database query functions for charities  
