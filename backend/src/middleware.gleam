@@ -1,14 +1,21 @@
 import api_types.{type ApiError}
+import auth0.{type User, type ValidationError}
+import config.{type ServiceConfig}
 import gleam/http.{Get, Post, Put, Delete, Patch, Head, Options, Connect, Trace, Other}
 import gleam/http/request.{type Request}
 import gleam/http/response.{type Response}
 import gleam/io
+import gleam/result
 import gleam/string
 import mist
 import response_helpers
 
 pub type Middleware(a) =
   fn(Request(a)) -> Result(Request(a), ApiError)
+
+pub type AuthenticatedRequest(a) {
+  AuthenticatedRequest(request: Request(a), user: User)
+}
 
 pub fn cors_middleware(req: Request(a)) -> Request(a) {
   req
@@ -95,5 +102,36 @@ pub fn handle_error(error: ApiError) -> Response(mist.ResponseData) {
       io.println_error("Too many requests: " <> msg)
       response_helpers.error_response(error)
     }
+  }
+}
+
+pub fn auth_middleware(req: Request(a), services: ServiceConfig) -> Result(AuthenticatedRequest(a), ApiError) {
+  use auth_header <- result.try(
+    request.get_header(req, "authorization")
+    |> result.map_error(fn(_) { api_types.UnauthorizedError("Authorization header is required") })
+  )
+  
+  use token <- result.try(
+    auth0.extract_bearer_token(auth_header)
+    |> result.map_error(auth_validation_error_to_api_error)
+  )
+  
+  use user <- result.try(
+    auth0.validate_token(token, services.auth0)
+    |> result.map_error(auth_validation_error_to_api_error)
+  )
+  
+  Ok(AuthenticatedRequest(request: req, user: user))
+}
+
+fn auth_validation_error_to_api_error(error: ValidationError) -> ApiError {
+  case error {
+    auth0.InvalidToken -> api_types.UnauthorizedError("Invalid token")
+    auth0.ExpiredToken -> api_types.UnauthorizedError("Token has expired")
+    auth0.InvalidAudience -> api_types.UnauthorizedError("Invalid token audience")
+    auth0.InvalidIssuer -> api_types.UnauthorizedError("Invalid token issuer")
+    auth0.InvalidSignature -> api_types.UnauthorizedError("Invalid token signature")
+    auth0.NetworkError(msg) -> api_types.InternalServerError("Authentication service error: " <> msg)
+    auth0.ParseError(msg) -> api_types.UnauthorizedError("Token parsing error: " <> msg)
   }
 }
