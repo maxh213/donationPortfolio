@@ -64,6 +64,7 @@ fn handle_request(req: Request(mist.Connection), config: config.Config, services
         ["api", "profile"] -> handle_profile(logged_req, config, services)
         ["api", "profile", "picture"] -> handle_profile_picture(logged_req, config, services)
         ["api", "charities"] -> handle_charities(logged_req, config, services)
+        ["api", "charities", charity_id] -> handle_charity_details(logged_req, config, services, charity_id)
         _ -> response_helpers.not_found()
       }
       middleware.add_cors_headers(response)
@@ -331,6 +332,13 @@ fn handle_charities(req: Request(mist.Connection), _config: config.Config, servi
   }
 }
 
+fn handle_charity_details(req: Request(mist.Connection), _config: config.Config, services: config.ServiceConfig, charity_id_str: String) -> Response(mist.ResponseData) {
+  case req.method {
+    Get -> get_charity_details(req, services, charity_id_str)
+    _ -> response_helpers.method_not_allowed()
+  }
+}
+
 fn list_charities(req: Request(mist.Connection), services: config.ServiceConfig) -> Response(mist.ResponseData) {
   case middleware.auth_middleware(req, services) {
     Ok(auth_req) -> {
@@ -368,6 +376,52 @@ fn list_charities(req: Request(mist.Connection), services: config.ServiceConfig)
           let api_error = middleware.database_error_to_api_error(database_error)
           middleware.handle_error(api_error)
         }
+      }
+    }
+    Error(api_error) -> middleware.handle_error(api_error)
+  }
+}
+
+fn get_charity_details(req: Request(mist.Connection), services: config.ServiceConfig, charity_id_str: String) -> Response(mist.ResponseData) {
+  case middleware.auth_middleware(req, services) {
+    Ok(auth_req) -> {
+      case int.parse(charity_id_str) {
+        Ok(charity_id) -> {
+          let client = database.new_client(services.supabase)
+          case database.get_charity(client, charity_id, auth_req.user.id) {
+            Ok(charity) -> {
+              let charity_json = json.object([
+                #("id", json.int(charity.id)),
+                #("name", json.string(charity.name)),
+                #("website_url", case charity.website_url {
+                  option.Some(url) -> json.string(url)
+                  option.None -> json.null()
+                }),
+                #("description", case charity.description {
+                  option.Some(desc) -> json.string(desc)
+                  option.None -> json.null()
+                }),
+                #("logo_url", case charity.logo_url {
+                  option.Some(url) -> json.string(url)
+                  option.None -> json.null()
+                }),
+                #("primary_cause_area_id", case charity.primary_cause_area_id {
+                  option.Some(id) -> json.int(id)
+                  option.None -> json.null()
+                }),
+                #("created_by", json.string(charity.created_by)),
+                #("created_at", json.string(charity.created_at)),
+                #("updated_at", json.string(charity.updated_at))
+              ])
+              response_helpers.success_response(charity_json)
+            }
+            Error(database_error) -> {
+              let api_error = middleware.database_error_to_api_error(database_error)
+              middleware.handle_error(api_error)
+            }
+          }
+        }
+        Error(_) -> middleware.handle_error(api_types.BadRequestError("Invalid charity ID format"))
       }
     }
     Error(api_error) -> middleware.handle_error(api_error)
