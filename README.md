@@ -30,7 +30,31 @@ Future Enhancements (not to be done yet, but to be considered when designing the
 - [Gleam](https://gleam.run/getting-started/installing/) installed on your system
 - Erlang/OTP (usually installed with Gleam)
 
-### Running the Backend
+### Quick Start with Services Script
+
+Use the provided services script for easy development:
+
+```bash
+# Start the backend service
+./services.sh start
+
+# Check service status
+./services.sh status
+
+# View real-time logs
+./services.sh logs
+
+# Run tests
+./services.sh test
+
+# Stop the service
+./services.sh stop
+
+# Get help
+./services.sh help
+```
+
+### Manual Backend Setup
 
 1. Navigate to the backend directory:
    ```bash
@@ -59,6 +83,11 @@ The API server will start on `http://localhost:8000`
 ```bash
 cd backend
 gleam test
+```
+
+Or use the services script:
+```bash
+./services.sh test
 ```
 
 ### Environment Variables

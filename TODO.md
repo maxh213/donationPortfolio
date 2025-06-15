@@ -5,7 +5,7 @@ This TODO list is designed for an AI engineer to work through systematically, co
 ## Phase 1: Project Foundation & Setup
 
 ### Backend Setup (Gleam/Wisp)
-- [ ] Initialize Gleam project structure with proper dependencies for Wisp web framework
+- [x] Initialize Gleam project structure with proper dependencies for Wisp web framework
 - [ ] Set up basic Wisp server with health check endpoint
 - [ ] Create .env file with environment variables for Supabase, Auth0, and Cloudinary credentials
 - [ ] Configure environment variables handling to read from .env file
