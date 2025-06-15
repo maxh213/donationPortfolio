@@ -52,7 +52,7 @@ This TODO list is designed for an AI engineer to work through systematically, co
 - [x] Add validation for charity data (required fields, URL format, etc.)
 
 ### Cause Areas API
-- [ ] Create API endpoint for listing all cause areas (GET /api/cause-areas)
+- [x] Create API endpoint for listing all cause areas (GET /api/cause-areas)
 - [ ] Create API endpoint for creating new cause area (POST /api/cause-areas)
 - [ ] Create API endpoint for updating cause area (PUT /api/cause-areas/:id)
 - [ ] Create API endpoint for deleting cause area (DELETE /api/cause-areas/:id)

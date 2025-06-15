@@ -69,6 +69,7 @@ fn handle_request(req: Request(mist.Connection), config: config.Config, services
         ["api", "charities", "search"] -> handle_charities_search(logged_req, config, services)
         ["api", "charities", charity_id] -> handle_charity_details(logged_req, config, services, charity_id)
         ["api", "charities", charity_id, "logo"] -> handle_charity_logo(logged_req, config, services, charity_id)
+        ["api", "cause-areas"] -> handle_cause_areas(logged_req, config, services)
         _ -> response_helpers.not_found()
       }
       middleware.add_cors_headers(response)
@@ -913,6 +914,48 @@ fn parse_charity_update_request(body: String) -> Result(CharityUpdateRequest, ap
   case json.parse(from: body, using: decoder) {
     Ok(request) -> validate_charity_update_request(request)
     Error(_) -> Error(api_types.BadRequestError("Invalid JSON format"))
+  }
+}
+
+fn handle_cause_areas(req: Request(mist.Connection), _config: config.Config, services: config.ServiceConfig) -> Response(mist.ResponseData) {
+  case req.method {
+    Get -> list_cause_areas_endpoint(req, services)
+    _ -> response_helpers.method_not_allowed()
+  }
+}
+
+fn list_cause_areas_endpoint(req: Request(mist.Connection), services: config.ServiceConfig) -> Response(mist.ResponseData) {
+  case middleware.auth_middleware(req, services) {
+    Ok(auth_req) -> {
+      let client = database.new_client(services.supabase)
+      case database.list_cause_areas(client, auth_req.user.id) {
+        Ok(cause_areas) -> {
+          let cause_areas_json = json.array(cause_areas, fn(cause_area) {
+            json.object([
+              #("id", json.int(cause_area.id)),
+              #("name", json.string(cause_area.name)),
+              #("description", case cause_area.description {
+                option.Some(desc) -> json.string(desc)
+                option.None -> json.null()
+              }),
+              #("color_hex", case cause_area.color_hex {
+                option.Some(color) -> json.string(color)
+                option.None -> json.null()
+              }),
+              #("created_by", json.string(cause_area.created_by)),
+              #("created_at", json.string(cause_area.created_at)),
+              #("updated_at", json.string(cause_area.updated_at))
+            ])
+          })
+          response_helpers.success_response(cause_areas_json)
+        }
+        Error(database_error) -> {
+          let api_error = middleware.database_error_to_api_error(database_error)
+          middleware.handle_error(api_error)
+        }
+      }
+    }
+    Error(api_error) -> middleware.handle_error(api_error)
   }
 }
 
