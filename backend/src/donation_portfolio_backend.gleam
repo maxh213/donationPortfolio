@@ -1,13 +1,17 @@
+import api_types
 import config
 import database
 import gleam/erlang/process
-import gleam/http.{Get}
+import gleam/dynamic/decode
+import gleam/http.{Get, Put}
 import gleam/http/request.{type Request}
 import gleam/http/response.{type Response}
 import gleam/int
 import gleam/io
 import gleam/json
 import gleam/option
+import gleam/bit_array
+import gleam/string
 import middleware
 import mist
 import response_helpers
@@ -87,6 +91,7 @@ fn handle_health(_req: Request(mist.Connection), _config: config.Config, service
 fn handle_profile(req: Request(mist.Connection), _config: config.Config, services: config.ServiceConfig) -> Response(mist.ResponseData) {
   case req.method {
     Get -> get_profile(req, services)
+    Put -> update_profile(req, services)
     _ -> response_helpers.method_not_allowed()
   }
 }
@@ -120,5 +125,99 @@ fn get_profile(req: Request(mist.Connection), services: config.ServiceConfig) ->
       }
     }
     Error(api_error) -> middleware.handle_error(api_error)
+  }
+}
+
+pub type ProfileUpdateRequest {
+  ProfileUpdateRequest(
+    full_name: option.Option(String),
+    email: option.Option(String),
+  )
+}
+
+fn update_profile(req: Request(mist.Connection), services: config.ServiceConfig) -> Response(mist.ResponseData) {
+  case middleware.auth_middleware(req, services) {
+    Ok(auth_req) -> {
+      case middleware.json_content_type_middleware(auth_req.request) {
+        Ok(validated_req) -> {
+          case mist.read_body(validated_req, 1024 * 1024) {
+            Ok(body_request) -> {
+              case bit_array.to_string(body_request.body) {
+                Ok(body_string) -> {
+                  case parse_profile_update_request(body_string) {
+                Ok(update_request) -> {
+                  let client = database.new_client(services.supabase)
+                  
+                  case update_request {
+                    ProfileUpdateRequest(full_name: full_name, email: email) -> {
+                      case email {
+                        option.Some(_) -> {
+                          middleware.handle_error(api_types.BadRequestError("Email updates are not allowed via this endpoint"))
+                        }
+                        option.None -> {
+                          case database.update_profile(client, auth_req.user.id, full_name, option.None) {
+                            Ok(profile) -> {
+                              let profile_json = json.object([
+                                #("id", json.string(profile.id)),
+                                #("email", json.string(profile.email)),
+                                #("full_name", case profile.full_name {
+                                  option.Some(name) -> json.string(name)
+                                  option.None -> json.null()
+                                }),
+                                #("profile_picture_url", case profile.profile_picture_url {
+                                  option.Some(url) -> json.string(url)
+                                  option.None -> json.null()
+                                }),
+                                #("created_at", json.string(profile.created_at)),
+                                #("updated_at", json.string(profile.updated_at))
+                              ])
+                              response_helpers.success_response(profile_json)
+                            }
+                            Error(database_error) -> {
+                              let api_error = middleware.database_error_to_api_error(database_error)
+                              middleware.handle_error(api_error)
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                    }
+                    Error(api_error) -> middleware.handle_error(api_error)
+                  }
+                }
+                Error(_) -> middleware.handle_error(api_types.BadRequestError("Failed to decode request body as UTF-8"))
+              }
+            }
+            Error(_) -> middleware.handle_error(api_types.BadRequestError("Failed to read request body"))
+          }
+        }
+        Error(api_error) -> middleware.handle_error(api_error)
+      }
+    }
+    Error(api_error) -> middleware.handle_error(api_error)
+  }
+}
+
+fn parse_profile_update_request(body: String) -> Result(ProfileUpdateRequest, api_types.ApiError) {
+  let decoder = {
+    use full_name <- decode.field("full_name", decode.optional(decode.string))
+    use email <- decode.field("email", decode.optional(decode.string))
+    decode.success(ProfileUpdateRequest(full_name: full_name, email: email))
+  }
+  
+  case json.parse(from: body, using: decoder) {
+    Ok(request) -> {
+      case request.full_name {
+        option.Some(name) -> {
+          case string.trim(name) {
+            "" -> Error(api_types.ValidationError("Full name cannot be empty"))
+            _ -> Ok(request)
+          }
+        }
+        option.None -> Ok(request)
+      }
+    }
+    Error(_) -> Error(api_types.BadRequestError("Invalid JSON format"))
   }
 }

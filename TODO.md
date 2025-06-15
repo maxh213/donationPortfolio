@@ -34,7 +34,7 @@ This TODO list is designed for an AI engineer to work through systematically, co
 - [x] Create authentication middleware for protecting API routes
 - [x] Implement user profile creation/sync with Supabase on first login
 - [x] Create API endpoint for user profile retrieval
-- [ ] Create API endpoint for user profile updates (name, email)
+- [x] Create API endpoint for user profile updates (name, email)
 - [ ] Create API endpoint for profile picture upload via Cloudinary and saving the url in Supabase
 - [ ] Create API endpoint for account deletion
 
