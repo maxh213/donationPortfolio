@@ -22,7 +22,7 @@ This TODO list is designed for an AI engineer to work through systematically, co
 - [x] Implement Row Level Security (RLS) policies for all tables
 - [x] Create Gleam database module with Supabase HTTP client
 - [x] Implement database query functions for profiles
-- [ ] Implement database query functions for cause_areas
+- [x] Implement database query functions for cause_areas
 - [ ] Implement database query functions for charities  
 - [ ] Implement database query functions for donations
 
