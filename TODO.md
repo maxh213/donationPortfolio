@@ -7,9 +7,9 @@ This TODO list is designed for an AI engineer to work through systematically, co
 ### Backend Setup (Gleam/Wisp)
 - [x] Initialize Gleam project structure with proper dependencies for Wisp web framework
 - [x] Set up basic Wisp server with health check endpoint
-- [ ] Create .env file with environment variables for Supabase, Auth0, and Cloudinary credentials
-- [ ] Configure environment variables handling to read from .env file
-- [ ] Create project configuration module for external service connections
+- [x] Create .env file with environment variables for Supabase, Auth0, and Cloudinary credentials
+- [x] Configure environment variables handling to read from .env file
+- [x] Create project configuration module for external service connections
 - [ ] Set up basic error handling and response types for API
 
 ### Database Setup (Supabase)
@@ -73,11 +73,7 @@ This TODO list is designed for an AI engineer to work through systematically, co
 ## Phase 4: Frontend Development (Gleam Static Site)
 
 ### Project Setup & Structure
-- [ ] Initialize frontend Gleam project with static site generation setup
-- [ ] Create modern CSS framework/system for clean design
-- [ ] Set up build process and development workflow
-- [ ] Create base HTML templates and layouts
-- [ ] Set up routing system for SPA-style navigation
+- [ ] look at ../maxh213.github.io for inspiration on project structure and copy that static generation set up exactly, make follow up todo items based on how that project works
 
 ### Authentication Pages
 - [ ] Create login page with Auth0 integration
