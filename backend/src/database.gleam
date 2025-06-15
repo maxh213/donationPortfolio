@@ -376,6 +376,22 @@ pub fn list_charities(
   Ok(parse_charities(resp.body))
 }
 
+pub fn search_charities(
+  client: SupabaseClient,
+  user_id: String,
+  search_term: String,
+) -> Result(List(Charity), DatabaseError) {
+  use req <- result.try(build_request(
+    client,
+    "GET",
+    "/charities?created_by=eq." <> user_id <> "&name=ilike.*" <> search_term <> "*&select=*&order=name",
+    False,
+  ))
+  
+  use resp <- result.try(send_request(req))
+  Ok(parse_charities(resp.body))
+}
+
 pub fn get_charity(
   client: SupabaseClient,
   charity_id: Int,
