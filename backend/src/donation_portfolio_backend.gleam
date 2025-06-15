@@ -70,6 +70,7 @@ fn handle_request(req: Request(mist.Connection), config: config.Config, services
         ["api", "charities", charity_id] -> handle_charity_details(logged_req, config, services, charity_id)
         ["api", "charities", charity_id, "logo"] -> handle_charity_logo(logged_req, config, services, charity_id)
         ["api", "cause-areas"] -> handle_cause_areas(logged_req, config, services)
+        ["api", "cause-areas", cause_area_id] -> handle_cause_area_details(logged_req, config, services, cause_area_id)
         _ -> response_helpers.not_found()
       }
       middleware.add_cors_headers(response)
@@ -182,6 +183,14 @@ pub type CharityUpdateRequest {
 pub type CauseAreaCreateRequest {
   CauseAreaCreateRequest(
     name: String,
+    description: option.Option(String),
+    color_hex: option.Option(String),
+  )
+}
+
+pub type CauseAreaUpdateRequest {
+  CauseAreaUpdateRequest(
+    name: option.Option(String),
     description: option.Option(String),
     color_hex: option.Option(String),
   )
@@ -933,6 +942,13 @@ fn handle_cause_areas(req: Request(mist.Connection), _config: config.Config, ser
   }
 }
 
+fn handle_cause_area_details(req: Request(mist.Connection), _config: config.Config, services: config.ServiceConfig, cause_area_id_str: String) -> Response(mist.ResponseData) {
+  case req.method {
+    Put -> update_cause_area_endpoint(req, services, cause_area_id_str)
+    _ -> response_helpers.method_not_allowed()
+  }
+}
+
 fn list_cause_areas_endpoint(req: Request(mist.Connection), services: config.ServiceConfig) -> Response(mist.ResponseData) {
   case middleware.auth_middleware(req, services) {
     Ok(auth_req) -> {
@@ -1093,6 +1109,125 @@ fn validate_hex_color(color: String, field_name: String) -> api_types.Validation
       }
     }
     False -> Error([api_types.ValidationField(field_name, "must be a valid hex color (e.g., #FF5733)")])
+  }
+}
+
+fn update_cause_area_endpoint(req: Request(mist.Connection), services: config.ServiceConfig, cause_area_id_str: String) -> Response(mist.ResponseData) {
+  case middleware.auth_middleware(req, services) {
+    Ok(auth_req) -> {
+      case int.parse(cause_area_id_str) {
+        Ok(cause_area_id) -> {
+          case middleware.json_content_type_middleware(auth_req.request) {
+            Ok(validated_req) -> {
+              case mist.read_body(validated_req, 1024 * 1024) {
+                Ok(body_request) -> {
+                  case bit_array.to_string(body_request.body) {
+                    Ok(body_string) -> {
+                      case parse_cause_area_update_request(body_string) {
+                        Ok(update_request) -> {
+                          let client = database.new_client(services.supabase)
+                          case database.update_cause_area(
+                            client,
+                            cause_area_id,
+                            update_request.name,
+                            update_request.description,
+                            update_request.color_hex,
+                            auth_req.user.id
+                          ) {
+                            Ok(cause_area) -> {
+                              let cause_area_json = json.object([
+                                #("id", json.int(cause_area.id)),
+                                #("name", json.string(cause_area.name)),
+                                #("description", case cause_area.description {
+                                  option.Some(desc) -> json.string(desc)
+                                  option.None -> json.null()
+                                }),
+                                #("color_hex", case cause_area.color_hex {
+                                  option.Some(color) -> json.string(color)
+                                  option.None -> json.null()
+                                }),
+                                #("created_by", json.string(cause_area.created_by)),
+                                #("created_at", json.string(cause_area.created_at)),
+                                #("updated_at", json.string(cause_area.updated_at))
+                              ])
+                              response_helpers.success_response(cause_area_json)
+                            }
+                            Error(database_error) -> {
+                              let api_error = middleware.database_error_to_api_error(database_error)
+                              middleware.handle_error(api_error)
+                            }
+                          }
+                        }
+                        Error(api_error) -> middleware.handle_error(api_error)
+                      }
+                    }
+                    Error(_) -> middleware.handle_error(api_types.BadRequestError("Failed to decode request body as UTF-8"))
+                  }
+                }
+                Error(_) -> middleware.handle_error(api_types.BadRequestError("Failed to read request body"))
+              }
+            }
+            Error(api_error) -> middleware.handle_error(api_error)
+          }
+        }
+        Error(_) -> middleware.handle_error(api_types.BadRequestError("Invalid cause area ID format"))
+      }
+    }
+    Error(api_error) -> middleware.handle_error(api_error)
+  }
+}
+
+fn parse_cause_area_update_request(body: String) -> Result(CauseAreaUpdateRequest, api_types.ApiError) {
+  let decoder = {
+    use name <- decode.field("name", decode.optional(decode.string))
+    use description <- decode.field("description", decode.optional(decode.string))
+    use color_hex <- decode.field("color_hex", decode.optional(decode.string))
+    decode.success(CauseAreaUpdateRequest(
+      name: name,
+      description: description,
+      color_hex: color_hex
+    ))
+  }
+  
+  case json.parse(from: body, using: decoder) {
+    Ok(request) -> validate_cause_area_update_request(request)
+    Error(_) -> Error(api_types.BadRequestError("Invalid JSON format"))
+  }
+}
+
+fn validate_cause_area_update_request(request: CauseAreaUpdateRequest) -> Result(CauseAreaUpdateRequest, api_types.ApiError) {
+  let name_validation = case request.name {
+    option.Some(name) -> {
+      case api_types.validate_required_string(name, "name") {
+        Ok(trimmed_name) -> api_types.validate_string_length(trimmed_name, "name", 1, 100)
+        Error(errors) -> Error(errors)
+      }
+    }
+    option.None -> Ok("")
+  }
+  
+  let description_validation = case request.description {
+    option.Some(desc) -> api_types.validate_string_length(desc, "description", 0, 500)
+    option.None -> Ok("")
+  }
+  
+  let color_hex_validation = case request.color_hex {
+    option.Some(color) -> validate_hex_color(color, "color_hex")
+    option.None -> Ok("")
+  }
+  
+  let validations = [
+    name_validation,
+    description_validation,
+    color_hex_validation
+  ]
+  
+  case api_types.combine_validation_results(validations) {
+    Ok(_) -> Ok(request)
+    Error(validation_errors) -> {
+      let error_messages = list.map(validation_errors, fn(field) { field.message })
+      Error(api_types.ValidationError(string.join(error_messages, "; ")))
+    }
   }
 }
 

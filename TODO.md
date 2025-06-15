@@ -29,7 +29,7 @@ This TODO list is designed for an AI engineer to work through systematically, co
 ## Phase 2: Authentication & User Management
 
 ### Auth0/profile Integration
-- [ ] This todo.md section was writting by an AI with no context7 access and is probably wrong, think deeply about the following and evaluate if it is correct or needed when designing a auth solution with auth0.
+- [ ] Figure out a way to get a dev Auth0 token for testing, use context7
 - [x] Set up Auth0 configuration and JWT validation in Gleam
 - [x] Create authentication middleware for protecting API routes
 - [x] Implement user profile creation/sync with Supabase on first login
@@ -54,7 +54,7 @@ This TODO list is designed for an AI engineer to work through systematically, co
 ### Cause Areas API
 - [x] Create API endpoint for listing all cause areas (GET /api/cause-areas)
 - [x] Create API endpoint for creating new cause area (POST /api/cause-areas)
-- [ ] Create API endpoint for updating cause area (PUT /api/cause-areas/:id)
+- [x] Create API endpoint for updating cause area (PUT /api/cause-areas/:id)
 - [ ] Create API endpoint for deleting cause area (DELETE /api/cause-areas/:id)
 - [ ] Create API endpoint for assigning charity to cause area (POST /api/charities/:id/cause-areas)
 - [ ] Create API endpoint for removing charity from cause area (DELETE /api/charities/:id/cause-areas/:cause_id)
