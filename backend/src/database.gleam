@@ -236,6 +236,117 @@ pub fn list_cause_areas(
   Ok(parse_cause_areas(resp.body))
 }
 
+pub fn get_cause_area(
+  client: SupabaseClient,
+  cause_area_id: Int,
+  user_id: String,
+) -> Result(CauseArea, DatabaseError) {
+  use req <- result.try(build_request(
+    client,
+    "GET",
+    "/cause_areas?id=eq." <> string.inspect(cause_area_id) <> "&created_by=eq." <> user_id <> "&select=*",
+    False,
+  ))
+  
+  use resp <- result.try(send_request(req))
+  
+  case parse_cause_areas(resp.body) {
+    [cause_area] -> Ok(cause_area)
+    [] -> Error(NotFound)
+    _ -> Error(ParseError("Multiple cause areas found"))
+  }
+}
+
+pub fn create_cause_area(
+  client: SupabaseClient,
+  name: String,
+  description: Option(String),
+  color_hex: Option(String),
+  user_id: String,
+) -> Result(CauseArea, DatabaseError) {
+  let cause_area_data = case description, color_hex {
+    option.Some(desc), option.Some(color) -> 
+      "{\"name\":\"" <> name <> "\",\"description\":\"" <> desc <> "\",\"color_hex\":\"" <> color <> "\",\"created_by\":\"" <> user_id <> "\"}"
+    option.Some(desc), option.None -> 
+      "{\"name\":\"" <> name <> "\",\"description\":\"" <> desc <> "\",\"created_by\":\"" <> user_id <> "\"}"
+    option.None, option.Some(color) -> 
+      "{\"name\":\"" <> name <> "\",\"color_hex\":\"" <> color <> "\",\"created_by\":\"" <> user_id <> "\"}"
+    option.None, option.None -> 
+      "{\"name\":\"" <> name <> "\",\"created_by\":\"" <> user_id <> "\"}"
+  }
+  
+  use req <- result.try(build_request(client, "POST", "/cause_areas", False))
+  let req_with_body = request.set_body(req, cause_area_data)
+  
+  use resp <- result.try(send_request(req_with_body))
+  
+  case parse_cause_areas(resp.body) {
+    [cause_area] -> Ok(cause_area)
+    [] -> Error(ParseError("No cause area returned after creation"))
+    _ -> Error(ParseError("Multiple cause areas returned after creation"))
+  }
+}
+
+pub fn update_cause_area(
+  client: SupabaseClient,
+  cause_area_id: Int,
+  name: Option(String),
+  description: Option(String),
+  color_hex: Option(String),
+  user_id: String,
+) -> Result(CauseArea, DatabaseError) {
+  let update_fields = []
+  let update_fields = case name {
+    option.Some(n) -> ["\"name\":\"" <> n <> "\"", ..update_fields]
+    option.None -> update_fields
+  }
+  let update_fields = case description {
+    option.Some(d) -> ["\"description\":\"" <> d <> "\"", ..update_fields]
+    option.None -> update_fields
+  }
+  let update_fields = case color_hex {
+    option.Some(c) -> ["\"color_hex\":\"" <> c <> "\"", ..update_fields]
+    option.None -> update_fields
+  }
+  
+  let update_data = case update_fields {
+    [] -> "{}"
+    fields -> "{" <> string.join(list.reverse(fields), ",") <> "}"
+  }
+  
+  use req <- result.try(build_request(
+    client,
+    "PATCH",
+    "/cause_areas?id=eq." <> string.inspect(cause_area_id) <> "&created_by=eq." <> user_id,
+    False,
+  ))
+  let req_with_body = request.set_body(req, update_data)
+  
+  use resp <- result.try(send_request(req_with_body))
+  
+  case parse_cause_areas(resp.body) {
+    [cause_area] -> Ok(cause_area)
+    [] -> Error(NotFound)
+    _ -> Error(ParseError("Multiple cause areas updated"))
+  }
+}
+
+pub fn delete_cause_area(
+  client: SupabaseClient,
+  cause_area_id: Int,
+  user_id: String,
+) -> Result(Nil, DatabaseError) {
+  use req <- result.try(build_request(
+    client,
+    "DELETE",
+    "/cause_areas?id=eq." <> string.inspect(cause_area_id) <> "&created_by=eq." <> user_id,
+    False,
+  ))
+  
+  use _resp <- result.try(send_request(req))
+  Ok(Nil)
+}
+
 pub fn list_charities(
   client: SupabaseClient,
   user_id: String,
