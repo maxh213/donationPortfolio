@@ -360,6 +360,7 @@ fn handle_charity_details(req: Request(mist.Connection), _config: config.Config,
   case req.method {
     Get -> get_charity_details(req, services, charity_id_str)
     Put -> update_charity_endpoint(req, services, charity_id_str)
+    Delete -> delete_charity_endpoint(req, services, charity_id_str)
     _ -> response_helpers.method_not_allowed()
   }
 }
@@ -740,6 +741,33 @@ fn update_charity_endpoint(req: Request(mist.Connection), services: config.Servi
               }
             }
             Error(api_error) -> middleware.handle_error(api_error)
+          }
+        }
+        Error(_) -> middleware.handle_error(api_types.BadRequestError("Invalid charity ID format"))
+      }
+    }
+    Error(api_error) -> middleware.handle_error(api_error)
+  }
+}
+
+fn delete_charity_endpoint(req: Request(mist.Connection), services: config.ServiceConfig, charity_id_str: String) -> Response(mist.ResponseData) {
+  case middleware.auth_middleware(req, services) {
+    Ok(auth_req) -> {
+      case int.parse(charity_id_str) {
+        Ok(charity_id) -> {
+          let client = database.new_client(services.supabase)
+          case database.delete_charity(client, charity_id, auth_req.user.id) {
+            Ok(_) -> {
+              let response_data = json.object([
+                #("message", json.string("Charity deleted successfully")),
+                #("charity_id", json.int(charity_id))
+              ])
+              response_helpers.success_response(response_data)
+            }
+            Error(database_error) -> {
+              let api_error = middleware.database_error_to_api_error(database_error)
+              middleware.handle_error(api_error)
+            }
           }
         }
         Error(_) -> middleware.handle_error(api_types.BadRequestError("Invalid charity ID format"))
