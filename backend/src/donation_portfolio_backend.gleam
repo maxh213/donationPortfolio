@@ -1,6 +1,7 @@
 import api_types
 import config
 import database
+import dot_env as dotenv
 import gleam/erlang/process
 import gleam/dynamic/decode
 import gleam/http.{Get, Put}
@@ -19,6 +20,12 @@ import wisp
 
 pub fn main() -> Nil {
   wisp.configure_logger()
+  
+  // Load environment variables from .env file
+  dotenv.new()
+  |> dotenv.set_path("../.env")
+  |> dotenv.set_debug(False)
+  |> dotenv.load
   
   let config = case config.load() {
     Ok(config) -> config

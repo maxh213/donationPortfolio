@@ -23,15 +23,6 @@ ensure_logs_dir() {
 start_backend() {
     echo "Starting backend service..."
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
-    
-    # Load environment variables from .env file
-    if [ -f "$SCRIPT_DIR/.env" ]; then
-        export $(cat "$SCRIPT_DIR/.env" | grep -v '^#' | xargs)
-        echo "Environment variables loaded from .env file"
-    else
-        echo "⚠️ No .env file found. Environment variables may not be configured."
-    fi
-    
     cd "$SCRIPT_DIR/backend"
     
     # Build first to ensure everything is compiled
