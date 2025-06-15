@@ -362,6 +362,138 @@ pub fn list_charities(
   Ok(parse_charities(resp.body))
 }
 
+pub fn get_charity(
+  client: SupabaseClient,
+  charity_id: Int,
+  user_id: String,
+) -> Result(Charity, DatabaseError) {
+  use req <- result.try(build_request(
+    client,
+    "GET",
+    "/charities?id=eq." <> string.inspect(charity_id) <> "&created_by=eq." <> user_id <> "&select=*",
+    False,
+  ))
+  
+  use resp <- result.try(send_request(req))
+  
+  case parse_charities(resp.body) {
+    [charity] -> Ok(charity)
+    [] -> Error(NotFound)
+    _ -> Error(ParseError("Multiple charities found"))
+  }
+}
+
+pub fn create_charity(
+  client: SupabaseClient,
+  name: String,
+  website_url: Option(String),
+  description: Option(String),
+  logo_url: Option(String),
+  primary_cause_area_id: Option(Int),
+  user_id: String,
+) -> Result(Charity, DatabaseError) {
+  let charity_fields = ["\"name\":\"" <> name <> "\"", "\"created_by\":\"" <> user_id <> "\""]
+  let charity_fields = case website_url {
+    option.Some(url) -> ["\"website_url\":\"" <> url <> "\"", ..charity_fields]
+    option.None -> charity_fields
+  }
+  let charity_fields = case description {
+    option.Some(desc) -> ["\"description\":\"" <> desc <> "\"", ..charity_fields]
+    option.None -> charity_fields
+  }
+  let charity_fields = case logo_url {
+    option.Some(logo) -> ["\"logo_url\":\"" <> logo <> "\"", ..charity_fields]
+    option.None -> charity_fields
+  }
+  let charity_fields = case primary_cause_area_id {
+    option.Some(cause_id) -> ["\"primary_cause_area_id\":" <> string.inspect(cause_id), ..charity_fields]
+    option.None -> charity_fields
+  }
+  
+  let charity_data = "{" <> string.join(list.reverse(charity_fields), ",") <> "}"
+  
+  use req <- result.try(build_request(client, "POST", "/charities", False))
+  let req_with_body = request.set_body(req, charity_data)
+  
+  use resp <- result.try(send_request(req_with_body))
+  
+  case parse_charities(resp.body) {
+    [charity] -> Ok(charity)
+    [] -> Error(ParseError("No charity returned after creation"))
+    _ -> Error(ParseError("Multiple charities returned after creation"))
+  }
+}
+
+pub fn update_charity(
+  client: SupabaseClient,
+  charity_id: Int,
+  name: Option(String),
+  website_url: Option(String),
+  description: Option(String),
+  logo_url: Option(String),
+  primary_cause_area_id: Option(Int),
+  user_id: String,
+) -> Result(Charity, DatabaseError) {
+  let update_fields = []
+  let update_fields = case name {
+    option.Some(n) -> ["\"name\":\"" <> n <> "\"", ..update_fields]
+    option.None -> update_fields
+  }
+  let update_fields = case website_url {
+    option.Some(url) -> ["\"website_url\":\"" <> url <> "\"", ..update_fields]
+    option.None -> update_fields
+  }
+  let update_fields = case description {
+    option.Some(desc) -> ["\"description\":\"" <> desc <> "\"", ..update_fields]
+    option.None -> update_fields
+  }
+  let update_fields = case logo_url {
+    option.Some(logo) -> ["\"logo_url\":\"" <> logo <> "\"", ..update_fields]
+    option.None -> update_fields
+  }
+  let update_fields = case primary_cause_area_id {
+    option.Some(cause_id) -> ["\"primary_cause_area_id\":" <> string.inspect(cause_id), ..update_fields]
+    option.None -> update_fields
+  }
+  
+  let update_data = case update_fields {
+    [] -> "{}"
+    fields -> "{" <> string.join(list.reverse(fields), ",") <> "}"
+  }
+  
+  use req <- result.try(build_request(
+    client,
+    "PATCH",
+    "/charities?id=eq." <> string.inspect(charity_id) <> "&created_by=eq." <> user_id,
+    False,
+  ))
+  let req_with_body = request.set_body(req, update_data)
+  
+  use resp <- result.try(send_request(req_with_body))
+  
+  case parse_charities(resp.body) {
+    [charity] -> Ok(charity)
+    [] -> Error(NotFound)
+    _ -> Error(ParseError("Multiple charities updated"))
+  }
+}
+
+pub fn delete_charity(
+  client: SupabaseClient,
+  charity_id: Int,
+  user_id: String,
+) -> Result(Nil, DatabaseError) {
+  use req <- result.try(build_request(
+    client,
+    "DELETE",
+    "/charities?id=eq." <> string.inspect(charity_id) <> "&created_by=eq." <> user_id,
+    False,
+  ))
+  
+  use _resp <- result.try(send_request(req))
+  Ok(Nil)
+}
+
 pub fn list_donations(
   client: SupabaseClient,
   user_id: String,
