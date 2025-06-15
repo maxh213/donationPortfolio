@@ -1,0 +1,184 @@
+# Donation Portfolio Project TODO
+
+This TODO list is designed for an AI engineer to work through systematically, completing **exactly one task per development cycle**. Each task should be actionable and completable in a single session.
+
+## Phase 1: Project Foundation & Setup
+
+### Backend Setup (Gleam/Wisp)
+- [ ] Initialize Gleam project structure with proper dependencies for Wisp web framework
+- [ ] Set up basic Wisp server with health check endpoint
+- [ ] Create .env file with environment variables for Supabase, Auth0, and Cloudinary credentials
+- [ ] Configure environment variables handling to read from .env file
+- [ ] Create project configuration module for external service connections
+- [ ] Set up basic error handling and response types for API
+
+### Database Setup (Supabase)
+- [ ] Design and create users table schema in Supabase
+- [ ] Design and create charities table schema with fields for logo_url, name, website_url, description, category
+- [ ] Design and create cause_areas table schema
+- [ ] Design and create charity_cause_area junction table for many-to-many relationship
+- [ ] Design and create donations table schema with fields for amount, currency, date, charity_id, user_id
+- [ ] Create Gleam database module with connection handling
+- [ ] Implement database query functions for users table
+- [ ] Implement database query functions for charities table
+- [ ] Implement database query functions for cause_areas table
+- [ ] Implement database query functions for donations table
+
+## Phase 2: Authentication & User Management
+
+### Auth0 Integration
+- [ ] Set up Auth0 configuration and JWT validation in Gleam
+- [ ] Create authentication middleware for protecting API routes
+- [ ] Implement user profile creation/sync with Supabase on first login
+- [ ] Create API endpoint for user profile retrieval
+- [ ] Create API endpoint for user profile updates (name, email)
+- [ ] Create API endpoint for profile picture upload via Cloudinary
+- [ ] Create API endpoint for account deletion
+
+## Phase 3: Core API Features
+
+### Charity Management API
+- [ ] Create API endpoint for listing all charities (GET /api/charities)
+- [ ] Create API endpoint for getting single charity details (GET /api/charities/:id)
+- [ ] Create API endpoint for creating new charity (POST /api/charities)
+- [ ] Create API endpoint for updating charity (PUT /api/charities/:id)
+- [ ] Create API endpoint for deleting charity (DELETE /api/charities/:id)
+- [ ] Implement Cloudinary integration for charity logo uploads
+- [ ] Add validation for charity data (required fields, URL format, etc.)
+
+### Cause Areas API
+- [ ] Create API endpoint for listing all cause areas (GET /api/cause-areas)
+- [ ] Create API endpoint for creating new cause area (POST /api/cause-areas)
+- [ ] Create API endpoint for updating cause area (PUT /api/cause-areas/:id)
+- [ ] Create API endpoint for deleting cause area (DELETE /api/cause-areas/:id)
+- [ ] Create API endpoint for assigning charity to cause area (POST /api/charities/:id/cause-areas)
+- [ ] Create API endpoint for removing charity from cause area (DELETE /api/charities/:id/cause-areas/:cause_id)
+
+### Donations API
+- [ ] Create API endpoint for listing user's donations (GET /api/donations)
+- [ ] Create API endpoint for getting single donation (GET /api/donations/:id)
+- [ ] Create API endpoint for creating new donation (POST /api/donations)
+- [ ] Create API endpoint for updating donation (PUT /api/donations/:id)
+- [ ] Create API endpoint for deleting donation (DELETE /api/donations/:id)
+- [ ] Add date range filtering for donations endpoint
+- [ ] Add charity filtering for donations endpoint
+- [ ] Add cause area filtering for donations endpoint
+
+### Analytics API
+- [ ] Create API endpoint for donations by month (GET /api/analytics/monthly)
+- [ ] Create API endpoint for donations by year (GET /api/analytics/yearly)
+- [ ] Create API endpoint for donations by cause area (GET /api/analytics/cause-areas)
+- [ ] Create API endpoint for donation totals and counts (GET /api/analytics/summary)
+
+## Phase 4: Frontend Development (Gleam Static Site)
+
+### Project Setup & Structure
+- [ ] Initialize frontend Gleam project with static site generation setup
+- [ ] Create modern CSS framework/system for clean design
+- [ ] Set up build process and development workflow
+- [ ] Create base HTML templates and layouts
+- [ ] Set up routing system for SPA-style navigation
+
+### Authentication Pages
+- [ ] Create login page with Auth0 integration
+- [ ] Create callback page for Auth0 redirect handling
+- [ ] Create logout functionality
+- [ ] Add authentication state management
+
+### Dashboard & Main Layout
+- [ ] Create main dashboard layout with navigation
+- [ ] Create sidebar navigation component
+- [ ] Create header component with user profile
+- [ ] Create loading states and error handling components
+
+### Charity Management Frontend
+- [ ] Create charities list page with search and filtering
+- [ ] Create charity details view page
+- [ ] Create add new charity form page
+- [ ] Create edit charity form page
+- [ ] Implement charity logo upload functionality
+- [ ] Add charity deletion confirmation dialog
+
+### Cause Areas Frontend
+- [ ] Create cause areas management page
+- [ ] Create add/edit cause area forms
+- [ ] Create charity-to-cause-area assignment interface
+
+### Donations Frontend
+- [ ] Create donations list page with filtering and sorting
+- [ ] Create add new donation form page
+- [ ] Create edit donation form page
+- [ ] Add donation deletion functionality
+- [ ] Create date picker component for donation dates
+- [ ] Create currency selector component
+
+### Dashboard Visualizations
+- [ ] Create monthly donations chart component
+- [ ] Create yearly donations chart component
+- [ ] Create cause areas breakdown chart component
+- [ ] Create summary statistics cards
+- [ ] Create responsive chart layouts for mobile
+
+### Account Settings
+- [ ] Create account settings page layout
+- [ ] Create profile information edit form
+- [ ] Create profile picture upload component
+- [ ] Create password change functionality
+- [ ] Create account deletion confirmation flow
+
+## Phase 5: Integration & Polish
+
+### Data Integration
+- [ ] Connect frontend charity management to backend API
+- [ ] Connect frontend donations management to backend API
+- [ ] Connect frontend cause areas management to backend API
+- [ ] Connect frontend dashboard to analytics API
+- [ ] Implement proper error handling and user feedback
+
+### User Experience
+- [ ] Add form validation and error messages
+- [ ] Implement loading spinners and skeleton screens
+- [ ] Add success notifications for actions
+- [ ] Create responsive design for mobile devices
+- [ ] Add keyboard navigation support
+
+### Testing & Validation
+- [ ] Test complete user registration and login flow
+- [ ] Test charity CRUD operations end-to-end
+- [ ] Test donation logging and editing end-to-end
+- [ ] Test dashboard data visualization accuracy
+- [ ] Test account management functionality
+- [ ] Verify all API endpoints return proper error codes
+- [ ] Test responsive design on various screen sizes
+
+## Phase 6: Deployment Preparation
+
+### Production Configuration
+- [ ] Set up production environment variables
+- [ ] Configure proper CORS settings for production
+- [ ] Set up production database with proper indexes
+- [ ] Configure Auth0 for production domain
+- [ ] Set up Cloudinary for production usage
+
+### Performance & Security
+- [ ] Implement API rate limiting
+- [ ] Add input sanitization and validation
+- [ ] Optimize database queries and add indexes
+- [ ] Minimize and optimize frontend bundle size
+- [ ] Add security headers and HTTPS enforcement
+
+---
+
+## Instructions for AI Engineer
+
+When working on this project:
+
+1. **Review Context:** Always start by reading README.md, TODO.md, and any other .md files to understand current state
+2. **Select ONE Task:** Pick the next uncompleted [ ] task from above that can be reasonably completed in one session
+3. **State Your Selection:** Clearly announce which specific task you're working on
+4. **Implement Only That Task:** Focus exclusively on completing that single task
+5. **Test Your Work:** Ask for verification before committing
+6. **Commit Changes:** Make a focused commit for just that task
+7. **Update TODO:** Mark the completed task with [x] and don't add new unrelated tasks
+
+**Remember:** Complete exactly one task per interaction. Do not plan ahead or work on multiple tasks simultaneously.
