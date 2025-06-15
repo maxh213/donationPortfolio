@@ -29,7 +29,6 @@ This TODO list is designed for an AI engineer to work through systematically, co
 ## Phase 2: Authentication & User Management
 
 ### Auth0/profile Integration
-- [ ] Figure out a way to get a dev Auth0 token for testing, use context7
 - [x] Set up Auth0 configuration and JWT validation in Gleam
 - [x] Create authentication middleware for protecting API routes
 - [x] Implement user profile creation/sync with Supabase on first login
@@ -55,7 +54,7 @@ This TODO list is designed for an AI engineer to work through systematically, co
 - [x] Create API endpoint for listing all cause areas (GET /api/cause-areas)
 - [x] Create API endpoint for creating new cause area (POST /api/cause-areas)
 - [x] Create API endpoint for updating cause area (PUT /api/cause-areas/:id)
-- [ ] Create API endpoint for deleting cause area (DELETE /api/cause-areas/:id)
+- [x] Create API endpoint for deleting cause area (DELETE /api/cause-areas/:id)
 - [ ] Create API endpoint for assigning charity to cause area (POST /api/charities/:id/cause-areas)
 - [ ] Create API endpoint for removing charity from cause area (DELETE /api/charities/:id/cause-areas/:cause_id)
 - [ ] Create API endpoint for lising all charities by cause area (GET /api/charities/cause-area/:cause_id)
@@ -144,6 +143,7 @@ This TODO list is designed for an AI engineer to work through systematically, co
 - [ ] Add success notifications for actions
 - [ ] Create responsive design for mobile devices
 - [ ] Add keyboard navigation support
+- [ ] Add link to github at the bottom of the site for raising issues
 
 ### Deployment
 - [ ] Set up deployment pipeline to fly.io

@@ -945,6 +945,7 @@ fn handle_cause_areas(req: Request(mist.Connection), _config: config.Config, ser
 fn handle_cause_area_details(req: Request(mist.Connection), _config: config.Config, services: config.ServiceConfig, cause_area_id_str: String) -> Response(mist.ResponseData) {
   case req.method {
     Put -> update_cause_area_endpoint(req, services, cause_area_id_str)
+    Delete -> delete_cause_area_endpoint(req, services, cause_area_id_str)
     _ -> response_helpers.method_not_allowed()
   }
 }
@@ -1228,6 +1229,33 @@ fn validate_cause_area_update_request(request: CauseAreaUpdateRequest) -> Result
       let error_messages = list.map(validation_errors, fn(field) { field.message })
       Error(api_types.ValidationError(string.join(error_messages, "; ")))
     }
+  }
+}
+
+fn delete_cause_area_endpoint(req: Request(mist.Connection), services: config.ServiceConfig, cause_area_id_str: String) -> Response(mist.ResponseData) {
+  case middleware.auth_middleware(req, services) {
+    Ok(auth_req) -> {
+      case int.parse(cause_area_id_str) {
+        Ok(cause_area_id) -> {
+          let client = database.new_client(services.supabase)
+          case database.delete_cause_area(client, cause_area_id, auth_req.user.id) {
+            Ok(_) -> {
+              let response_data = json.object([
+                #("message", json.string("Cause area deleted successfully")),
+                #("cause_area_id", json.int(cause_area_id))
+              ])
+              response_helpers.success_response(response_data)
+            }
+            Error(database_error) -> {
+              let api_error = middleware.database_error_to_api_error(database_error)
+              middleware.handle_error(api_error)
+            }
+          }
+        }
+        Error(_) -> middleware.handle_error(api_types.BadRequestError("Invalid cause area ID format"))
+      }
+    }
+    Error(api_error) -> middleware.handle_error(api_error)
   }
 }
 
