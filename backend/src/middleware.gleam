@@ -66,6 +66,23 @@ pub fn json_content_type_middleware(req: Request(a)) -> Result(Request(a), ApiEr
   }
 }
 
+pub fn multipart_content_type_middleware(req: Request(a)) -> Result(Request(a), ApiError) {
+  case req.method {
+    Post | Put | Patch -> {
+      case request.get_header(req, "content-type") {
+        Ok(content_type) -> {
+          case string.contains(content_type, "multipart/form-data") {
+            True -> Ok(req)
+            False -> Error(api_types.BadRequestError("Content-Type must be multipart/form-data"))
+          }
+        }
+        Error(_) -> Error(api_types.BadRequestError("Content-Type header is required"))
+      }
+    }
+    _ -> Ok(req)
+  }
+}
+
 pub fn validation_error(message: String) -> ApiError {
   api_types.ValidationError(message)
 }

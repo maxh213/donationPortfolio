@@ -1,10 +1,11 @@
 import api_types
+import cloudinary
 import config
 import database
 import dot_env as dotenv
 import gleam/erlang/process
 import gleam/dynamic/decode
-import gleam/http.{Get, Put}
+import gleam/http.{Get, Post, Put}
 import gleam/http/request.{type Request}
 import gleam/http/response.{type Response}
 import gleam/int
@@ -61,6 +62,7 @@ fn handle_request(req: Request(mist.Connection), config: config.Config, services
         [] -> handle_root(logged_req, config, services)
         ["health"] -> handle_health(logged_req, config, services)
         ["api", "profile"] -> handle_profile(logged_req, config, services)
+        ["api", "profile", "picture"] -> handle_profile_picture(logged_req, config, services)
         _ -> response_helpers.not_found()
       }
       middleware.add_cors_headers(response)
@@ -99,6 +101,13 @@ fn handle_profile(req: Request(mist.Connection), _config: config.Config, service
   case req.method {
     Get -> get_profile(req, services)
     Put -> update_profile(req, services)
+    _ -> response_helpers.method_not_allowed()
+  }
+}
+
+fn handle_profile_picture(req: Request(mist.Connection), _config: config.Config, services: config.ServiceConfig) -> Response(mist.ResponseData) {
+  case req.method {
+    Post -> upload_profile_picture(req, services)
     _ -> response_helpers.method_not_allowed()
   }
 }
@@ -226,5 +235,67 @@ fn parse_profile_update_request(body: String) -> Result(ProfileUpdateRequest, ap
       }
     }
     Error(_) -> Error(api_types.BadRequestError("Invalid JSON format"))
+  }
+}
+
+fn upload_profile_picture(req: Request(mist.Connection), services: config.ServiceConfig) -> Response(mist.ResponseData) {
+  case middleware.auth_middleware(req, services) {
+    Ok(auth_req) -> {
+      case middleware.multipart_content_type_middleware(auth_req.request) {
+        Ok(validated_req) -> {
+          case mist.read_body(validated_req, 10 * 1024 * 1024) {
+            Ok(body_request) -> {
+              let upload_preset = "profile_pictures"
+              let public_id = "profile_" <> auth_req.user.id
+              
+              case cloudinary.upload_image(services.cloudinary, body_request.body, upload_preset, public_id) {
+                Ok(upload_result) -> {
+                  let client = database.new_client(services.supabase)
+                  case database.update_profile(client, auth_req.user.id, option.None, option.Some(upload_result.secure_url)) {
+                    Ok(profile) -> {
+                      let response_data = json.object([
+                        #("message", json.string("Profile picture uploaded successfully")),
+                        #("profile_picture_url", json.string(upload_result.secure_url)),
+                        #("profile", json.object([
+                          #("id", json.string(profile.id)),
+                          #("email", json.string(profile.email)),
+                          #("full_name", case profile.full_name {
+                            option.Some(name) -> json.string(name)
+                            option.None -> json.null()
+                          }),
+                          #("profile_picture_url", case profile.profile_picture_url {
+                            option.Some(url) -> json.string(url)
+                            option.None -> json.null()
+                          }),
+                          #("created_at", json.string(profile.created_at)),
+                          #("updated_at", json.string(profile.updated_at))
+                        ]))
+                      ])
+                      response_helpers.success_response(response_data)
+                    }
+                    Error(database_error) -> {
+                      let api_error = middleware.database_error_to_api_error(database_error)
+                      middleware.handle_error(api_error)
+                    }
+                  }
+                }
+                Error(cloudinary_error) -> {
+                  let api_error = case cloudinary_error {
+                    cloudinary.NetworkError(msg) -> api_types.InternalServerError("Cloudinary network error: " <> msg)
+                    cloudinary.AuthenticationError(msg) -> api_types.InternalServerError("Cloudinary authentication error: " <> msg)
+                    cloudinary.ValidationError(msg) -> api_types.BadRequestError("Invalid image: " <> msg)
+                    cloudinary.UnknownError(msg) -> api_types.InternalServerError("Cloudinary error: " <> msg)
+                  }
+                  middleware.handle_error(api_error)
+                }
+              }
+            }
+            Error(_) -> middleware.handle_error(api_types.BadRequestError("Failed to read request body"))
+          }
+        }
+        Error(api_error) -> middleware.handle_error(api_error)
+      }
+    }
+    Error(api_error) -> middleware.handle_error(api_error)
   }
 }
