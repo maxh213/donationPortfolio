@@ -63,6 +63,7 @@ fn handle_request(req: Request(mist.Connection), config: config.Config, services
         ["health"] -> handle_health(logged_req, config, services)
         ["api", "profile"] -> handle_profile(logged_req, config, services)
         ["api", "profile", "picture"] -> handle_profile_picture(logged_req, config, services)
+        ["api", "charities"] -> handle_charities(logged_req, config, services)
         _ -> response_helpers.not_found()
       }
       middleware.add_cors_headers(response)
@@ -317,6 +318,56 @@ fn upload_profile_picture(req: Request(mist.Connection), services: config.Servic
           }
         }
         Error(api_error) -> middleware.handle_error(api_error)
+      }
+    }
+    Error(api_error) -> middleware.handle_error(api_error)
+  }
+}
+
+fn handle_charities(req: Request(mist.Connection), _config: config.Config, services: config.ServiceConfig) -> Response(mist.ResponseData) {
+  case req.method {
+    Get -> list_charities(req, services)
+    _ -> response_helpers.method_not_allowed()
+  }
+}
+
+fn list_charities(req: Request(mist.Connection), services: config.ServiceConfig) -> Response(mist.ResponseData) {
+  case middleware.auth_middleware(req, services) {
+    Ok(auth_req) -> {
+      let client = database.new_client(services.supabase)
+      case database.list_charities(client, auth_req.user.id) {
+        Ok(charities) -> {
+          let charities_json = json.array(charities, fn(charity) {
+            json.object([
+              #("id", json.int(charity.id)),
+              #("name", json.string(charity.name)),
+              #("website_url", case charity.website_url {
+                option.Some(url) -> json.string(url)
+                option.None -> json.null()
+              }),
+              #("description", case charity.description {
+                option.Some(desc) -> json.string(desc)
+                option.None -> json.null()
+              }),
+              #("logo_url", case charity.logo_url {
+                option.Some(url) -> json.string(url)
+                option.None -> json.null()
+              }),
+              #("primary_cause_area_id", case charity.primary_cause_area_id {
+                option.Some(id) -> json.int(id)
+                option.None -> json.null()
+              }),
+              #("created_by", json.string(charity.created_by)),
+              #("created_at", json.string(charity.created_at)),
+              #("updated_at", json.string(charity.updated_at))
+            ])
+          })
+          response_helpers.success_response(charities_json)
+        }
+        Error(database_error) -> {
+          let api_error = middleware.database_error_to_api_error(database_error)
+          middleware.handle_error(api_error)
+        }
       }
     }
     Error(api_error) -> middleware.handle_error(api_error)
