@@ -30,7 +30,7 @@ This TODO list is designed for an AI engineer to work through systematically, co
 
 ### Auth0/profile Integration
 - [ ] This todo.md section was writting by an AI with no context7 access and is probably wrong, think deeply about the following and evaluate if it is correct or needed when designing a auth solution with auth0.
-- [ ] Set up Auth0 configuration and JWT validation in Gleam
+- [x] Set up Auth0 configuration and JWT validation in Gleam
 - [ ] Create authentication middleware for protecting API routes
 - [ ] Implement user profile creation/sync with Supabase on first login
 - [ ] Create API endpoint for user profile retrieval
@@ -83,10 +83,10 @@ This TODO list is designed for an AI engineer to work through systematically, co
 - [ ] look at ../maxh213.github.io for inspiration on project structure and copy that static generation set up exactly, make follow up todo items based on how that project works
 
 ### Authentication Pages
-- [ ] Create login page with Auth0 integration
+- [ ] Use register/login page Auth0
 - [ ] Create callback page for Auth0 redirect handling
-- [ ] Create logout functionality
-- [ ] Add authentication state management
+- [ ] Create logout functionality using Auth0
+- [ ] Add authentication state management using Auth0
 
 ### Dashboard & Main Layout
 - [ ] Create main dashboard layout with navigation
