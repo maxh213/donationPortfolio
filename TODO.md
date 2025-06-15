@@ -10,23 +10,26 @@ This TODO list is designed for an AI engineer to work through systematically, co
 - [x] Create .env file with environment variables for Supabase, Auth0, and Cloudinary credentials
 - [x] Configure environment variables handling to read from .env file
 - [x] Create project configuration module for external service connections
-- [ ] Set up basic error handling and response types for API
+- [x] Set up basic error handling and response types for API
 
 ### Database Setup (Supabase)
-- [ ] Design and create users table schema in Supabase
-- [ ] Design and create charities table schema with fields for logo_url, name, website_url, description, category
-- [ ] Design and create cause_areas table schema
-- [ ] Design and create charity_cause_area junction table for many-to-many relationship
-- [ ] Design and create donations table schema with fields for amount, currency, date, charity_id, user_id
-- [ ] Create Gleam database module with connection handling
-- [ ] Implement database query functions for users table
-- [ ] Implement database query functions for charities table
-- [ ] Implement database query functions for cause_areas table
-- [ ] Implement database query functions for donations table
+- [x] Analyze database schema requirements and create comprehensive design (see DATABASE_SCHEMA_ANALYSIS.md)
+- [ ] Create Supabase migration files for the optimized schema:
+  - profiles table (linked to auth.users)
+  - cause_areas table (user-owned categories)
+  - charities table (user-owned with Cloudinary logo support)
+  - donations table (with proper indexing and constraints)
+- [ ] Implement Row Level Security (RLS) policies for all tables
+- [ ] Create Gleam database module with Supabase HTTP client
+- [ ] Implement database query functions for profiles
+- [ ] Implement database query functions for cause_areas
+- [ ] Implement database query functions for charities  
+- [ ] Implement database query functions for donations
 
 ## Phase 2: Authentication & User Management
 
 ### Auth0 Integration
+- [ ] This todo.md section was writting by an AI with no context7 access and is probably wrong, think deeply about the following and evaluate if it is correct or needed when designing a auth solution with auth0.
 - [ ] Set up Auth0 configuration and JWT validation in Gleam
 - [ ] Create authentication middleware for protecting API routes
 - [ ] Implement user profile creation/sync with Supabase on first login
