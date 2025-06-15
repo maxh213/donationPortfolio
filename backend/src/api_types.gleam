@@ -1,3 +1,4 @@
+import gleam/int
 import gleam/json
 import gleam/list
 import gleam/result
@@ -120,4 +121,19 @@ pub fn combine_validation_results(results: List(ValidationResult(a))) -> Validat
     }
   })
   |> result.map(list.reverse)
+}
+
+pub fn validate_string_length(value: String, field: String, min_length: Int, max_length: Int) -> ValidationResult(String) {
+  let length = string.length(value)
+  case length >= min_length && length <= max_length {
+    True -> Ok(value)
+    False -> Error([ValidationField(field, "Must be between " <> int.to_string(min_length) <> " and " <> int.to_string(max_length) <> " characters long")])
+  }
+}
+
+pub fn validate_positive_integer(value: Int, field: String) -> ValidationResult(String) {
+  case value > 0 {
+    True -> Ok(int.to_string(value))
+    False -> Error([ValidationField(field, "Must be a positive integer")])
+  }
 }

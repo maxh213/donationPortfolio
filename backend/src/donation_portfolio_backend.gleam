@@ -605,26 +605,50 @@ fn parse_charity_create_request(body: String) -> Result(CharityCreateRequest, ap
   }
   
   case json.parse(from: body, using: decoder) {
-    Ok(request) -> {
-      case string.trim(request.name) {
-        "" -> Error(api_types.ValidationError("Charity name cannot be empty"))
-        _ -> {
-          case request.website_url {
-            option.Some(url) -> {
-              case api_types.validate_url(url, "website_url") {
-                Ok(_) -> Ok(request)
-                Error(validation_errors) -> {
-                  let error_messages = list.map(validation_errors, fn(field) { field.message })
-                  Error(api_types.ValidationError(string.join(error_messages, "; ")))
-                }
-              }
-            }
-            option.None -> Ok(request)
-          }
-        }
-      }
-    }
+    Ok(request) -> validate_charity_create_request(request)
     Error(_) -> Error(api_types.BadRequestError("Invalid JSON format"))
+  }
+}
+
+fn validate_charity_create_request(request: CharityCreateRequest) -> Result(CharityCreateRequest, api_types.ApiError) {
+  let name_validation = api_types.validate_required_string(request.name, "name")
+  let name_length_validation = api_types.validate_string_length(request.name, "name", 1, 255)
+  
+  let website_url_validation = case request.website_url {
+    option.Some(url) -> api_types.validate_url(url, "website_url")
+    option.None -> Ok("")
+  }
+  
+  let logo_url_validation = case request.logo_url {
+    option.Some(url) -> api_types.validate_url(url, "logo_url")
+    option.None -> Ok("")
+  }
+  
+  let description_validation = case request.description {
+    option.Some(desc) -> api_types.validate_string_length(desc, "description", 0, 1000)
+    option.None -> Ok("")
+  }
+  
+  let primary_cause_area_validation = case request.primary_cause_area_id {
+    option.Some(id) -> api_types.validate_positive_integer(id, "primary_cause_area_id")
+    option.None -> Ok("0")
+  }
+  
+  let validations = [
+    name_validation,
+    name_length_validation,
+    website_url_validation,
+    logo_url_validation,
+    description_validation,
+    primary_cause_area_validation
+  ]
+  
+  case api_types.combine_validation_results(validations) {
+    Ok(_) -> Ok(request)
+    Error(validation_errors) -> {
+      let error_messages = list.map(validation_errors, fn(field) { field.message })
+      Error(api_types.ValidationError(string.join(error_messages, "; ")))
+    }
   }
 }
 
@@ -887,43 +911,55 @@ fn parse_charity_update_request(body: String) -> Result(CharityUpdateRequest, ap
   }
   
   case json.parse(from: body, using: decoder) {
-    Ok(request) -> {
-      case request.name {
-        option.Some(name) -> {
-          case string.trim(name) {
-            "" -> Error(api_types.ValidationError("Charity name cannot be empty"))
-            _ -> {
-              case request.website_url {
-                option.Some(url) -> {
-                  case api_types.validate_url(url, "website_url") {
-                    Ok(_) -> Ok(request)
-                    Error(validation_errors) -> {
-                      let error_messages = list.map(validation_errors, fn(field) { field.message })
-                      Error(api_types.ValidationError(string.join(error_messages, "; ")))
-                    }
-                  }
-                }
-                option.None -> Ok(request)
-              }
-            }
-          }
-        }
-        option.None -> {
-          case request.website_url {
-            option.Some(url) -> {
-              case api_types.validate_url(url, "website_url") {
-                Ok(_) -> Ok(request)
-                Error(validation_errors) -> {
-                  let error_messages = list.map(validation_errors, fn(field) { field.message })
-                  Error(api_types.ValidationError(string.join(error_messages, "; ")))
-                }
-              }
-            }
-            option.None -> Ok(request)
-          }
-        }
+    Ok(request) -> validate_charity_update_request(request)
+    Error(_) -> Error(api_types.BadRequestError("Invalid JSON format"))
+  }
+}
+
+fn validate_charity_update_request(request: CharityUpdateRequest) -> Result(CharityUpdateRequest, api_types.ApiError) {
+  let name_validation = case request.name {
+    option.Some(name) -> {
+      case api_types.validate_required_string(name, "name") {
+        Ok(trimmed_name) -> api_types.validate_string_length(trimmed_name, "name", 1, 255)
+        Error(errors) -> Error(errors)
       }
     }
-    Error(_) -> Error(api_types.BadRequestError("Invalid JSON format"))
+    option.None -> Ok("")
+  }
+  
+  let website_url_validation = case request.website_url {
+    option.Some(url) -> api_types.validate_url(url, "website_url")
+    option.None -> Ok("")
+  }
+  
+  let logo_url_validation = case request.logo_url {
+    option.Some(url) -> api_types.validate_url(url, "logo_url")
+    option.None -> Ok("")
+  }
+  
+  let description_validation = case request.description {
+    option.Some(desc) -> api_types.validate_string_length(desc, "description", 0, 1000)
+    option.None -> Ok("")
+  }
+  
+  let primary_cause_area_validation = case request.primary_cause_area_id {
+    option.Some(id) -> api_types.validate_positive_integer(id, "primary_cause_area_id")
+    option.None -> Ok("0")
+  }
+  
+  let validations = [
+    name_validation,
+    website_url_validation,
+    logo_url_validation,
+    description_validation,
+    primary_cause_area_validation
+  ]
+  
+  case api_types.combine_validation_results(validations) {
+    Ok(_) -> Ok(request)
+    Error(validation_errors) -> {
+      let error_messages = list.map(validation_errors, fn(field) { field.message })
+      Error(api_types.ValidationError(string.join(error_messages, "; ")))
+    }
   }
 }
