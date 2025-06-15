@@ -4,11 +4,11 @@ This directory contains the database migration files for the Donation Portfolio 
 
 ## Migration Files
 
-1. **20240101000001_create_profiles_table.sql** - Creates user profiles table linked to auth.users
-2. **20240101000002_create_cause_areas_table.sql** - Creates cause areas table for categorizing charities
-3. **20240101000003_create_charities_table.sql** - Creates charities table with Cloudinary logo support
-4. **20240101000004_create_donations_table.sql** - Creates donations table with proper indexing
-5. **20240101000005_create_updated_at_triggers.sql** - Creates triggers for automatic updated_at timestamps
+1. **20250615000001_create_profiles_table.sql** - Creates user profiles table linked to auth.users
+2. **20250615000002_create_cause_areas_table.sql** - Creates cause areas table for categorizing charities
+3. **20250615000003_create_charities_table.sql** - Creates charities table with Cloudinary logo support
+4. **20250615000004_create_donations_table.sql** - Creates donations table with proper indexing
+5. **20250615000005_create_updated_at_triggers.sql** - Creates triggers for automatic updated_at timestamps
 
 ## Running Migrations
 
